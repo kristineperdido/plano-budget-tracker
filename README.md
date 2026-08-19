@@ -13,6 +13,13 @@ npm install
 npm run dev
 ```
 
+## Live
+
+<https://plano-budget-tracker.vercel.app>
+
+Deploy with `npx vercel --prod` (project is already linked; env vars are set
+in Vercel for production, preview and development).
+
 ## Built so far
 
 - **Today** (`/`) — buffer headline, monthly progress with pace marker,
@@ -29,6 +36,16 @@ Screens still to build: Plan, Ledger, Food, What-if, Pending, Log.
   so rows are coerced through `coerceEntry` on the way in.
 - **Realtime.** The Today screen subscribes to `food_entries` changes so an
   entry logged on one phone shows up on the other.
-- **Auth.** There is none yet — RLS is wide open on the anon key, which means
-  anyone with the key can read, edit and delete everything. See Open Items in
-  the handoff before this goes anywhere public.
+- **Auth.** Magic-link sign-in, gated on an allowlist. `app_members` holds the
+  permitted email addresses; `is_member()` checks the JWT's email against it and
+  every RLS policy calls it. Signing up is deliberately not enough to see
+  anything, and the `anon` role has no table privileges at all. Add a person
+  with:
+
+  ```sql
+  insert into app_members (email, label) values ('them@example.com', 'Him');
+  ```
+
+- **Auth redirect.** Supabase must list the deployed origin under
+  Authentication → URL Configuration, otherwise magic links bounce to the
+  Site URL instead of the app.

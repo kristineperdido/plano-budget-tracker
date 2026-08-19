@@ -1,0 +1,4 @@
+# Local env files must never be uploaded; Vercel supplies its own at build time.
+.env
+.env.*
+!.env.example
