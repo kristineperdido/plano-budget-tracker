@@ -11,4 +11,23 @@ if (!url || !anonKey) {
   );
 }
 
-export const supabase = createClient(url, anonKey);
+export const supabase = createClient(url, anonKey, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+    // Magic links land back on the app with the session in the URL.
+    detectSessionInUrl: true,
+    flowType: 'pkce',
+  },
+});
+
+/**
+ * Whether the signed-in address is on the allowlist. Being able to sign up is
+ * deliberately not the same as being able to see anything — the RLS policies
+ * gate on this too, this call just lets the UI say so plainly.
+ */
+export async function isMember(): Promise<boolean> {
+  const { data, error } = await supabase.rpc('is_member');
+  if (error) return false;
+  return data === true;
+}

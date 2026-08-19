@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { AuthGate } from '@/components/AuthGate';
 import { BufferHeadline } from '@/components/BufferHeadline';
 import { EntryList } from '@/components/EntryList';
 import { LogSheet } from '@/components/LogSheet';
@@ -15,7 +16,11 @@ import type { FoodEntry } from '@/lib/types';
 /** Days of history shown under the fold. */
 const RECENT_DAYS = 14;
 
-export default function TodayPage() {
+export default function Page() {
+  return <AuthGate>{() => <TodayScreen />}</AuthGate>;
+}
+
+function TodayScreen() {
   const [today, setToday] = useState(todayISO);
   const [entries, setEntries] = useState<FoodEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -114,7 +119,18 @@ export default function TodayPage() {
     <main className="mx-auto min-h-dvh max-w-md pb-28">
       <header className="flex items-baseline justify-between px-5 pt-6">
         <h1 className="serif text-[1.15rem] tracking-wide">Plano</h1>
-        <span className="tint-muted text-[0.7rem] uppercase tracking-[0.18em]">Today</span>
+        <div className="flex items-baseline gap-3">
+          <span className="tint-muted text-[0.7rem] uppercase tracking-[0.18em]">
+            Today
+          </span>
+          <button
+            type="button"
+            onClick={() => void supabase.auth.signOut()}
+            className="tint-muted text-[0.7rem] underline"
+          >
+            Sign out
+          </button>
+        </div>
       </header>
 
       {error && (
