@@ -2,13 +2,15 @@
 
 import { useEffect, useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
-import { isMember, supabase } from '@/lib/supabase';
+import { isMember, readAuthErrorFromUrl, supabase } from '@/lib/supabase';
 
 type Status = 'loading' | 'signed-out' | 'not-member' | 'ready';
 
 export function AuthGate({ children }: { children: (session: Session) => React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [checked, setChecked] = useState(false);
+  // Read before supabase-js scrubs the fragment on init.
+  const [linkError] = useState(readAuthErrorFromUrl);
   // Tagged with the user it was resolved for, so a stale answer from a previous
   // account can never be read as the current one's.
   const [memberFor, setMemberFor] = useState<{ userId: string; ok: boolean } | null>(null);
@@ -64,7 +66,7 @@ export function AuthGate({ children }: { children: (session: Session) => React.R
     );
   }
 
-  if (status === 'signed-out') return <SignIn />;
+  if (status === 'signed-out') return <SignIn linkError={linkError} />;
 
   if (status === 'not-member') {
     return (
@@ -88,7 +90,7 @@ export function AuthGate({ children }: { children: (session: Session) => React.R
   return <>{children(session as Session)}</>;
 }
 
-function SignIn() {
+function SignIn({ linkError }: { linkError: string | null }) {
   const [email, setEmail] = useState('');
   const [sent, setSent] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -114,6 +116,16 @@ function SignIn() {
       <p className="tint-muted serif mt-1 text-center text-[0.85rem] italic">
         A running tally, for the two of us.
       </p>
+
+      {linkError && !sent && (
+        <p
+          className="tint-brick sheet mt-6 px-4 py-3 text-[0.82rem]"
+          role="alert"
+        >
+          That sign-in link didn&apos;t work: {linkError}. Links are single-use
+          and expire quickly — request a fresh one below.
+        </p>
+      )}
 
       {sent ? (
         <div className="sheet mt-8 px-5 py-6 text-center">
