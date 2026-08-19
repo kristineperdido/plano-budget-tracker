@@ -1,0 +1,108 @@
+@import 'tailwindcss';
+
+:root {
+  --paper: #f0e6ce;
+  --paper-light: #fbf6e8;
+  --ink: #241e15;
+  --brick: #b5432e;
+  --green: #3e5c3b;
+  --gold: #c1861e;
+  --charcoal: #7a6f5d;
+  --rule: #d9cdae;
+
+  --serif: Georgia, 'Iowan Old Style', 'Times New Roman', serif;
+  --mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+  --sans: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--sans);
+  -webkit-font-smoothing: antialiased;
+  /* Keep the paper colour behind the notch / home indicator. */
+  min-height: 100dvh;
+}
+
+/* Numbers align everywhere — this is a running tally, not a dashboard. */
+.num {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+.serif {
+  font-family: var(--serif);
+}
+
+/* ---------------------------------------------------------------- receipt */
+
+.sheet {
+  background: var(--paper-light);
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  box-shadow: 0 1px 0 rgb(36 30 21 / 0.04);
+}
+
+/* Label ......................... amount */
+.leader {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.leader > .leader-fill {
+  flex: 1;
+  border-bottom: 1px dotted var(--rule);
+  transform: translateY(-0.28em);
+  min-width: 1rem;
+}
+
+.rule-dashed {
+  border-top: 1px dashed var(--rule);
+}
+
+/* Perforated top/bottom edge, like a torn receipt. */
+.perf {
+  height: 8px;
+  background-image: radial-gradient(circle at 5px 0, transparent 4px, var(--paper-light) 4px);
+  background-size: 10px 8px;
+  background-repeat: repeat-x;
+}
+
+.tint-green {
+  color: var(--green);
+}
+.tint-brick {
+  color: var(--brick);
+}
+.tint-gold {
+  color: var(--gold);
+}
+.tint-muted {
+  color: var(--charcoal);
+}
+
+/* Tap targets stay comfortable on a phone. */
+button {
+  font: inherit;
+  color: inherit;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
