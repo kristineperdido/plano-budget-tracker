@@ -13,6 +13,8 @@ export type FoodEntry = {
   category: Category;
   amount: number;
   note: string | null;
+  /** Email of whoever logged it; null for rows predating attribution. */
+  person: string | null;
   created_at: string;
 };
 

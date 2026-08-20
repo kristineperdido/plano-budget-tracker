@@ -11,7 +11,7 @@ import { coerceEntry, type Category, type FoodEntry, type FoodEntryRow } from '.
 export async function fetchEntries(from: string, to: string): Promise<FoodEntry[]> {
   const { data, error } = await supabase
     .from('food_entries')
-    .select('id, spent_on, category, amount, note, created_at')
+    .select('id, spent_on, category, amount, note, person, created_at')
     .gte('spent_on', from)
     .lte('spent_on', to)
     .order('spent_on', { ascending: false })
@@ -35,7 +35,7 @@ export async function addEntry(input: {
       amount: input.amount,
       note: input.note?.trim() || null,
     })
-    .select('id, spent_on, category, amount, note, created_at')
+    .select('id, spent_on, category, amount, note, person, created_at')
     .single();
 
   if (error) throw new Error(error.message);

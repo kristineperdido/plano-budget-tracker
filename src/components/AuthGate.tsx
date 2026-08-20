@@ -1,12 +1,21 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { isMember, readAuthErrorFromUrl, supabase } from '@/lib/supabase';
 
 type Status = 'loading' | 'signed-out' | 'not-member' | 'ready';
 
-export function AuthGate({ children }: { children: (session: Session) => React.ReactNode }) {
+const SessionContext = createContext<Session | null>(null);
+
+/** The signed-in session. Only ever called from inside the gate. */
+export function useSession(): Session {
+  const s = useContext(SessionContext);
+  if (!s) throw new Error('useSession must be used inside AuthGate');
+  return s;
+}
+
+export function AuthGate({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [checked, setChecked] = useState(false);
   // Read before supabase-js scrubs the fragment on init.
@@ -87,7 +96,9 @@ export function AuthGate({ children }: { children: (session: Session) => React.R
     );
   }
 
-  return <>{children(session as Session)}</>;
+  return (
+    <SessionContext.Provider value={session as Session}>{children}</SessionContext.Provider>
+  );
 }
 
 function SignIn({ linkError }: { linkError: string | null }) {

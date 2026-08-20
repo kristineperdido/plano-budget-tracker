@@ -1,16 +1,21 @@
 'use client';
 
 import { php2 } from '@/lib/model';
+import { personLabel, type Member } from '@/lib/members';
 import { CATEGORY_LABEL, type FoodEntry } from '@/lib/types';
 
 export function EntryList({
   entries,
   onDelete,
   pendingDelete,
+  me,
+  members,
 }: {
   entries: FoodEntry[];
   onDelete: (id: string) => void;
   pendingDelete: string | null;
+  me?: string;
+  members: Member[];
 }) {
   if (entries.length === 0) {
     return (
@@ -27,6 +32,12 @@ export function EntryList({
           <span className="text-[0.9rem]">
             {CATEGORY_LABEL[e.category]}
             {e.note && <span className="tint-muted"> · {e.note}</span>}
+            {personLabel(e.person, me, members) && (
+              <span className="tint-muted text-[0.72rem]">
+                {' '}
+                ({personLabel(e.person, me, members)})
+              </span>
+            )}
           </span>
           <span className="leader-fill" aria-hidden />
           <span className="num text-[0.9rem]">{php2(e.amount)}</span>

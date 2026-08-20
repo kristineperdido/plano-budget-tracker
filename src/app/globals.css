@@ -106,3 +106,76 @@ button {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ------------------------------------------------------------------- nav */
+
+.tabbar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 30;
+  display: flex;
+  justify-content: center;
+  gap: 0.15rem;
+  border-top: 1px solid var(--rule);
+  background: var(--paper);
+  padding: 0.4rem 0.5rem calc(0.4rem + env(safe-area-inset-bottom));
+}
+
+.tabbar a {
+  flex: 1;
+  max-width: 5.2rem;
+  text-align: center;
+  padding: 0.4rem 0.1rem;
+  font-size: 0.66rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--charcoal);
+  text-decoration: none;
+  border-radius: 2px;
+}
+
+.tabbar a[data-active='true'] {
+  color: var(--ink);
+  background: var(--paper-light);
+  border: 1px solid var(--rule);
+}
+
+/* Stamped headings, like a ledger book section. */
+.stamp {
+  font-size: 0.68rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--charcoal);
+}
+
+.chip {
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  padding: 0.35rem 0.6rem;
+  font-size: 0.75rem;
+  color: var(--charcoal);
+  background: transparent;
+}
+
+.chip[data-on='true'] {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--paper-light);
+}
+
+.field {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  background: transparent;
+  border-bottom: 1px dotted var(--rule);
+  outline: none;
+  padding: 0.1rem 0;
+}
+
+.field:focus {
+  border-bottom-style: solid;
+  border-bottom-color: var(--ink);
+}

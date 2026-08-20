@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { AuthGate } from '@/components/AuthGate';
 import { BufferHeadline } from '@/components/BufferHeadline';
 import { EntryList } from '@/components/EntryList';
 import { LogSheet } from '@/components/LogSheet';
@@ -11,16 +10,14 @@ import { addDays, monthStart, todayISO } from '@/lib/date';
 import { addEntry, deleteEntry, fetchEntries } from '@/lib/entries';
 import { byDay, computeToday } from '@/lib/model';
 import { supabase } from '@/lib/supabase';
+import { fetchMembers, type Member } from '@/lib/members';
+import { useSession } from '@/components/AuthGate';
 import type { FoodEntry } from '@/lib/types';
 
 /** Days of history shown under the fold. */
 const RECENT_DAYS = 14;
 
-export default function Page() {
-  return <AuthGate>{() => <TodayScreen />}</AuthGate>;
-}
-
-function TodayScreen() {
+export default function TodayPage() {
   const [today, setToday] = useState(todayISO);
   const [entries, setEntries] = useState<FoodEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -29,6 +26,8 @@ function TodayScreen() {
   const [pendingDelete, setPendingDelete] = useState<string | null>(null);
   // Bumped by the realtime channel to re-run the fetch effect.
   const [reloadKey, setReloadKey] = useState(0);
+  const [members, setMembers] = useState<Member[]>([]);
+  const session = useSession();
 
   // The window has to cover the whole current month (the buffer is
   // month-to-date) as well as the recent-days list, which can reach back past
@@ -61,6 +60,16 @@ function TodayScreen() {
       cancelled = true;
     };
   }, [from, today, reloadKey]);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchMembers().then((m) => {
+      if (!cancelled) setMembers(m);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Both partners log from their own phones, so mirror changes live.
   useEffect(() => {
@@ -163,6 +172,8 @@ function TodayScreen() {
               entries={todaysEntries}
               onDelete={handleDelete}
               pendingDelete={pendingDelete}
+              me={session.user.email}
+              members={members}
             />
             <div className="rule-dashed mt-2 pt-2">
               <div className="leader">
