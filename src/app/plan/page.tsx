@@ -311,7 +311,7 @@ export default function PlanPage() {
             </div>
 
             <div className="leader mt-4 border-t pt-3" style={{ borderColor: 'var(--rule)' }}>
-              <span className="sign-label">Between you</span>
+              <span className="sign-label">Combined</span>
               <span className="leader-fill" aria-hidden />
               <Signed value={scale(net.her + net.him)} size="27px" />
             </div>

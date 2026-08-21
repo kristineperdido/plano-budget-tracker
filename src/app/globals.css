@@ -35,8 +35,12 @@
   --tape: rgb(222 154 143 / 0.5);
 
   /* Type. --font-anton and --font-caveat come from next/font in layout.tsx. */
-  --sign: var(--font-anton), 'Anton', system-ui, sans-serif;
-  --marker: var(--font-caveat), 'Caveat', ui-rounded, cursive;
+  /* The fallback goes inside var(). Written as `var(--font-anton), 'Anton'`,
+     an undefined --font-anton leaves the value starting with a comma, which
+     makes every `font:` shorthand built on it invalid — so size and weight are
+     dropped too, not just the family. */
+  --sign: var(--font-anton, 'Anton'), system-ui, sans-serif;
+  --marker: var(--font-caveat, 'Caveat'), ui-rounded, cursive;
   --sans: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   --mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
 
@@ -226,6 +230,26 @@ button {
 .row-leader { flex: 1; border-bottom: 1px solid var(--rule); transform: translateY(-4px); }
 .row-meta { font: 400 11.5px/1.3 var(--sans); color: var(--charcoal); }
 
+/* A section header: LABEL ————————— subtotal, all on one line. */
+.leader {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  width: 100%;
+}
+.leader-fill {
+  flex: 1;
+  border-bottom: 1px solid var(--rule);
+  transform: translateY(-4px);
+  min-width: 1rem;
+}
+
+/* An amount the user can tap to edit gets the soft underline. */
+.amount-editable {
+  border-bottom: 1px dotted var(--rule-soft);
+  padding-bottom: 1px;
+}
+
 /* A note someone wrote about a line — "first bill covers Sept–Oct". It is
    supplementary to the name above it and should never outweigh it, so it stays
    quiet sans. Marker was tried and was wrong twice over: too loud, and the
@@ -237,13 +261,17 @@ button {
   display: block;
 }
 
-/* The app reporting state rather than a person writing — whether a figure has
-   been recorded for a month yet. Mono is what separates it from a note: it
-   reads as output. Not paler, though; charcoal is the floor. */
+/* The app reporting state rather than a person writing. The design already has
+   a register for status — .stamp is Anton small-caps — so this borrows it
+   without the border, which would be heavy repeated down sixteen rows.
+   Sentence-case sans against letter-spaced small-caps is a difference you can
+   actually see; mono against sans at 11px was not, and neither teal (4.15:1)
+   nor a paler grey clears the contrast floor. Both stay charcoal at 4.9:1. */
 .row-status {
-  font: 400 11px/1.3 var(--mono);
+  font: 400 9.5px/1.3 var(--sign);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
   color: var(--charcoal);
-  letter-spacing: -0.01em;
   display: block;
 }
 
