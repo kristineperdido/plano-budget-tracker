@@ -1,43 +1,16 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo } from 'react';
 import { AmountField } from '@/components/AmountField';
 import { Screen, Card, Hero, Aside } from '@/components/Screen';
 import { Tally } from '@/components/Tally';
-import type { Config, DayType, Extra } from '@/lib/config';
-import { fetchConfig, logChange, saveConfig } from '@/lib/configStore';
+import type { DayType, Extra } from '@/lib/config';
+import { useConfig } from '@/lib/useConfig';
 import { foodForecast } from '@/lib/engine';
 import { php } from '@/lib/model';
 
 export default function FoodPage() {
-  const [config, setConfig] = useState<Config | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    fetchConfig().then(
-      (c) => !cancelled && setConfig(c),
-      (e: unknown) => !cancelled && setError(e instanceof Error ? e.message : 'Could not load.'),
-    );
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const persist = useCallback(async (next: Config, note: string) => {
-    setConfig(next);
-    setSaving(true);
-    try {
-      await saveConfig(next);
-      await logChange(note);
-      setError(null);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not save.');
-    } finally {
-      setSaving(false);
-    }
-  }, []);
+  const { config, setConfig, persist, saving, error } = useConfig();
 
   const updateDayType = useCallback(
     (id: string, patch: Partial<DayType>, note: string) => {

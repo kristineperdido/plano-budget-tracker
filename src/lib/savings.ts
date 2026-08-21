@@ -2,7 +2,15 @@
 
 import { supabase } from './supabase';
 
-export type SavingsKind = 'sweep' | 'deposit' | 'withdrawal';
+/**
+ * 'sweep'      a finished month's surplus, banked deliberately
+ * 'drawdown'   a finished month that cost more than it had, covered from savings
+ * 'deposit'    money put in from elsewhere
+ * 'withdrawal' money taken back out
+ *
+ * Drawdowns and withdrawals are stored negative, so the balance is a plain sum.
+ */
+export type SavingsKind = 'sweep' | 'deposit' | 'withdrawal' | 'drawdown';
 
 export type SavingsEntry = {
   id: string;
@@ -42,7 +50,10 @@ export async function addSavings(input: {
     .insert({
       kind: input.kind,
       // Withdrawals are stored negative; the caller passes a positive figure.
-      amount: input.kind === 'withdrawal' ? -Math.abs(input.amount) : Math.abs(input.amount),
+      amount:
+        input.kind === 'withdrawal' || input.kind === 'drawdown'
+          ? -Math.abs(input.amount)
+          : Math.abs(input.amount),
       for_month: input.for_month ?? null,
       note: input.note?.trim() || null,
     })
@@ -63,9 +74,11 @@ export function balanceOf(entries: SavingsEntry[]): number {
   return entries.reduce((s, e) => s + e.amount, 0);
 }
 
-/** Months already swept, so the same surplus cannot be banked twice. */
-export function sweptMonths(entries: SavingsEntry[]): Set<string> {
+/** Months already accounted for, so the same month cannot be recorded twice. */
+export function settledMonths(entries: SavingsEntry[]): Set<string> {
   return new Set(
-    entries.filter((e) => e.kind === 'sweep' && e.for_month).map((e) => e.for_month as string),
+    entries
+      .filter((e) => (e.kind === 'sweep' || e.kind === 'drawdown') && e.for_month)
+      .map((e) => e.for_month as string),
   );
 }

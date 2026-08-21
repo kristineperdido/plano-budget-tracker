@@ -5,7 +5,7 @@ import { Screen, Card, Hero, Aside } from '@/components/Screen';
 import { PersonTag } from '@/components/Payer';
 import { useSession } from '@/components/AuthGate';
 import { fetchMembers, type Member } from '@/lib/members';
-import { fetchConfig } from '@/lib/configStore';
+import { useConfig } from '@/lib/useConfig';
 import { fetchEntries } from '@/lib/entries';
 import { fetchBills, type BillPayment } from '@/lib/bills';
 import {
@@ -13,10 +13,11 @@ import {
   balanceOf,
   deleteSavings,
   fetchSavings,
-  sweptMonths,
+  settledMonths,
   type SavingsEntry,
 } from '@/lib/savings';
 import { closeMonth, type MonthClose } from '@/lib/close';
+import { confidenceOf } from '@/lib/cashflow';
 import { monthIndexOf, todayISO } from '@/lib/date';
 import { php } from '@/lib/model';
 import { totalMonths } from '@/lib/engine';
@@ -40,7 +41,7 @@ function monthsSoFar(config: Config, today: string): string[] {
 
 export default function SavingsPage() {
   const [today] = useState(todayISO);
-  const [config, setConfig] = useState<Config | null>(null);
+
   const [savings, setSavings] = useState<SavingsEntry[] | null>(null);
   const [entries, setEntries] = useState<FoodEntry[]>([]);
   const [bills, setBills] = useState<BillPayment[]>([]);
@@ -51,32 +52,27 @@ export default function SavingsPage() {
   const [amount, setAmount] = useState('');
   const [moving, setMoving] = useState<'deposit' | 'withdrawal'>('deposit');
   const session = useSession();
+  const { config } = useConfig();
 
+  // The whole plan window, so every month can be closed out.
   useEffect(() => {
+    if (!config) return;
     let cancelled = false;
-    fetchConfig().then(
-      (c) => {
+    const from = `${config.startMonth}-01`;
+    Promise.all([fetchEntries(from, today), fetchBills(config.startMonth), fetchMembers()]).then(
+      ([e, b, m]) => {
         if (cancelled) return;
-        setConfig(c);
-        // The whole plan window, so every month can be closed out.
-        const from = `${c.startMonth}-01`;
-        Promise.all([fetchEntries(from, today), fetchBills(c.startMonth), fetchMembers()]).then(
-          ([e, b, m]) => {
-            if (cancelled) return;
-            setEntries(e);
-            setBills(b);
-            setMembers(m);
-          },
-          (err: unknown) =>
-            !cancelled && setError(err instanceof Error ? err.message : 'Could not load.'),
-        );
+        setEntries(e);
+        setBills(b);
+        setMembers(m);
       },
-      (e: unknown) => !cancelled && setError(e instanceof Error ? e.message : 'Could not load.'),
+      (err: unknown) =>
+        !cancelled && setError(err instanceof Error ? err.message : 'Could not load.'),
     );
     return () => {
       cancelled = true;
     };
-  }, [today, reloadKey]);
+  }, [config, today, reloadKey]);
 
   useEffect(() => {
     let cancelled = false;
@@ -90,7 +86,7 @@ export default function SavingsPage() {
   }, [reloadKey]);
 
   const balance = savings ? balanceOf(savings) : 0;
-  const swept = useMemo(() => (savings ? sweptMonths(savings) : new Set<string>()), [savings]);
+  const swept = useMemo(() => (savings ? settledMonths(savings) : new Set<string>()), [savings]);
 
   const months: MonthClose[] = useMemo(() => {
     if (!config) return [];
@@ -99,6 +95,9 @@ export default function SavingsPage() {
 
   // A month can only be banked once it is over and has something left in it.
   const bankable = months.filter((m) => m.complete && !swept.has(m.month) && m.surplus > 0);
+  // Months that cost more than they had. Savings used to ignore these entirely,
+  // so the balance could only ever climb.
+  const overspent = months.filter((m) => m.complete && !swept.has(m.month) && m.surplus < 0);
 
   const bank = useCallback(
     async (m: MonthClose) => {
@@ -121,6 +120,24 @@ export default function SavingsPage() {
     [],
   );
 
+  const drawDown = useCallback(async (m: MonthClose) => {
+    setBusy(m.month);
+    try {
+      await addSavings({
+        kind: 'drawdown',
+        amount: Math.round(-m.surplus * 100) / 100,
+        for_month: m.month,
+        note: `${m.month} cost more than it had`,
+      });
+      setReloadKey((k) => k + 1);
+      setError(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not record it.');
+    } finally {
+      setBusy(null);
+    }
+  }, []);
+
   const move = useCallback(async () => {
     const v = Number(amount);
     if (!Number.isFinite(v) || v <= 0) return;
@@ -136,6 +153,15 @@ export default function SavingsPage() {
       setBusy(null);
     }
   }, [amount, moving]);
+
+  // What was brought into the move, split by how much it can be relied on.
+  // These live in the plan as `moneyIn`; the ledger below is what has been put
+  // away since. They were two unconnected numbers both called savings.
+  const opening = useMemo(() => {
+    const r = { committed: 0, uncertain: 0, backup: 0 };
+    for (const m of config?.moneyIn ?? []) r[confidenceOf(m)] += m.amount;
+    return r;
+  }, [config]);
 
   const goal = config?.savings.goalAmount ?? 0;
   const pct = goal > 0 ? Math.min(balance / goal, 1) : 0;
@@ -175,6 +201,76 @@ export default function SavingsPage() {
             )}
           </section>
           </Hero>
+
+          <Card title="What you have">
+            <div className="row">
+              <span className="row-label">
+                Money in hand at move-in
+                <span className="row-meta block">savings and anything counted on</span>
+              </span>
+              <span className="num text-[13px]">{php(opening.committed)}</span>
+            </div>
+            <div className="row">
+              <span className="row-label">
+                Put away since
+                <span className="row-meta block">banked from months that came in under</span>
+              </span>
+              <span className={`num text-[13px] ${balance < 0 ? 'tint-brick' : 'tint-green'}`}>
+                {php(balance)}
+              </span>
+            </div>
+            <div className="leader mt-2 border-t pt-2.5" style={{ borderColor: 'var(--rule)' }}>
+              <span className="sign-label">Available</span>
+              <span className="leader-fill" aria-hidden />
+              <span className="num text-[17px]">{php(opening.committed + balance)}</span>
+            </div>
+
+            {opening.uncertain > 0 && (
+              <div className="row">
+                <span className="row-label">
+                  Uncertain
+                  <span className="row-meta block">not counted above</span>
+                </span>
+                <span className="num tint-gold text-[13px]">{php(opening.uncertain)}</span>
+              </div>
+            )}
+            {opening.backup > 0 && (
+              <div className="row">
+                <span className="row-label">
+                  Held back
+                  <span className="row-meta block">not counted above</span>
+                </span>
+                <span className="num tint-muted text-[13px]">{php(opening.backup)}</span>
+              </div>
+            )}
+          </Card>
+
+          {overspent.length > 0 && (
+            <Card title="Months that cost more than they had">
+              <Aside tilt={-1.5} tint="brick" className="mb-2">
+                covered out of savings — record it or the balance drifts up
+              </Aside>
+              {overspent.map((m) => (
+                <div key={m.month} className="row">
+                  <span className="row-label">
+                    {m.month}
+                    <span className="row-meta block">
+                      spent {php(m.foodSpent + m.billsActual)} of{' '}
+                      {php(m.foodBudget + m.billsPlanned)}
+                    </span>
+                  </span>
+                  <button
+                    type="button"
+                    className="chip tint-brick"
+                    disabled={busy === m.month}
+                    onClick={() => void drawDown(m)}
+                  >
+                    {busy === m.month ? 'Saving…' : `Took ${php(-m.surplus)}`}
+                  </button>
+                </div>
+              ))}
+            </Card>
+          )}
 
           {/* Banking is deliberate: the app never claims money moved on its own. */}
           <Card title="Ready to bank">
@@ -293,8 +389,7 @@ export default function SavingsPage() {
               />
               <button
                 type="button"
-                className="btn btn--ghost"
-                style={{ width: 'auto', padding: '12px 16px' }}
+                className="chip"
                 disabled={busy === 'move' || !amount.trim()}
                 onClick={() => void move()}
               >
@@ -313,9 +408,11 @@ export default function SavingsPage() {
                   <span className="row-label">
                     {e.kind === 'sweep'
                       ? `Left over from ${e.for_month}`
-                      : e.kind === 'deposit'
-                        ? 'Put in'
-                        : 'Taken out'}
+                      : e.kind === 'drawdown'
+                        ? `Covered ${e.for_month}`
+                        : e.kind === 'deposit'
+                          ? 'Put in'
+                          : 'Taken out'}
                     <span className="row-meta block">
                       <PersonTag person={e.person} me={session.user.email} members={members} />
                     </span>

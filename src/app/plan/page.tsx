@@ -4,8 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Row, Signed } from '@/components/Money';
 import { Screen, Card, Aside } from '@/components/Screen';
 import { PayerMark, PayerTag } from '@/components/Payer';
-import type { Config } from '@/lib/config';
-import { fetchConfig } from '@/lib/configStore';
+import { useConfig } from '@/lib/useConfig';
 import { computePlan, foodForecast, totalMonths, phaseOf } from '@/lib/engine';
 import { computeCashflow } from '@/lib/cashflow';
 import { CashflowPanel } from '@/components/Cashflow';
@@ -15,7 +14,7 @@ import { php } from '@/lib/model';
 import type { FoodEntry } from '@/lib/types';
 
 export default function PlanPage() {
-  const [config, setConfig] = useState<Config | null>(null);
+  const { config, error: configError } = useConfig();
   const [entries, setEntries] = useState<FoodEntry[]>([]);
   const [error, setError] = useState<string | null>(null);
   // Off by default. Counting the brother's repayment as money in hand is what
@@ -27,10 +26,9 @@ export default function PlanPage() {
   useEffect(() => {
     let cancelled = false;
     const today = todayISO();
-    Promise.all([fetchConfig(), fetchEntries(addDays(today, -29), today)]).then(
-      ([c, e]) => {
+    fetchEntries(addDays(today, -29), today).then(
+      (e) => {
         if (cancelled) return;
-        setConfig(c);
         setEntries(e);
       },
       (err: unknown) => {
@@ -78,9 +76,9 @@ export default function PlanPage() {
 
   return (
     <Screen title="Plan" meta={plan ? `${months} months` : undefined}>
-      {error && (
+      {(error ?? configError) && (
         <p className="tint-brick mt-4 text-[12.5px]" role="alert">
-          {error}
+          {error ?? configError}
         </p>
       )}
 

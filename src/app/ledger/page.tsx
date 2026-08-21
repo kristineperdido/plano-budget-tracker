@@ -7,11 +7,11 @@ import { PayerTag } from '@/components/Payer';
 import {
   PAYER_DESCRIPTION,
   type Cadence,
-  type Config,
   type LineItem,
   type Payer,
 } from '@/lib/config';
-import { fetchConfig, logChange, saveConfig } from '@/lib/configStore';
+import { logChange } from '@/lib/configStore';
+import { useConfig } from '@/lib/useConfig';
 import { foodForecast, householdCost } from '@/lib/engine';
 import { fetchBills, recordBill, type BillPayment } from '@/lib/bills';
 import { monthOf } from '@/lib/close';
@@ -31,24 +31,11 @@ const SECTIONS: { cadence: Cadence; title: string }[] = [
 ];
 
 export default function LedgerPage() {
-  const [config, setConfig] = useState<Config | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
+  const { config, setConfig, persist, saving, error, setError } = useConfig();
   // Cadence, payer and start-month chips only appear on the row being edited.
   const [editing, setEditing] = useState<string | null>(null);
   const [bills, setBills] = useState<BillPayment[]>([]);
   const [thisMonth] = useState(() => monthOf(todayISO()));
-
-  useEffect(() => {
-    let cancelled = false;
-    fetchConfig().then(
-      (c) => !cancelled && setConfig(c),
-      (e: unknown) => !cancelled && setError(e instanceof Error ? e.message : 'Could not load.'),
-    );
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   // What the monthly bills have actually come to this month.
   useEffect(() => {
@@ -69,9 +56,10 @@ export default function LedgerPage() {
     [bills, thisMonth],
   );
 
+  const [savingBill, setSavingBill] = useState(false);
   const saveActual = useCallback(
     async (item: LineItem, amount: number) => {
-      setSaving(true);
+      setSavingBill(true);
       try {
         const saved = await recordBill({ item_id: item.id, for_month: thisMonth, amount });
         setBills((prev) => [
@@ -83,27 +71,11 @@ export default function LedgerPage() {
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Could not record it.');
       } finally {
-        setSaving(false);
+        setSavingBill(false);
       }
     },
-    [thisMonth],
+    [thisMonth, setError],
   );
-
-  // Persist immediately: two people on two phones, so leaving edits unsaved in
-  // local state would quietly diverge.
-  const persist = useCallback(async (next: Config, note: string) => {
-    setConfig(next);
-    setSaving(true);
-    try {
-      await saveConfig(next);
-      await logChange(note);
-      setError(null);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not save.');
-    } finally {
-      setSaving(false);
-    }
-  }, []);
 
   const updateItem = useCallback(
     (id: string, patch: Partial<LineItem>, note: string) => {
@@ -152,7 +124,7 @@ export default function LedgerPage() {
     <Screen
       title="Ledger"
       meta={
-        saving ? (
+        saving || savingBill ? (
           <span className="marker tint-gold text-[17px]">saving…</span>
         ) : (
           `${active.length} items`

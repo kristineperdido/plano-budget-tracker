@@ -1,11 +1,11 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Screen, Card, Aside } from '@/components/Screen';
 import { Signed } from '@/components/Money';
 import { PayerMark } from '@/components/Payer';
 import type { Config } from '@/lib/config';
-import { fetchConfig, logChange, saveConfig } from '@/lib/configStore';
+import { useConfig } from '@/lib/useConfig';
 import { computePlan, foodForecast } from '@/lib/engine';
 import { php } from '@/lib/model';
 
@@ -51,26 +51,18 @@ function applyKnobs(config: Config, k: Knobs): Config {
 }
 
 export default function WhatIfPage() {
-  const [config, setConfig] = useState<Config | null>(null);
+
+  const { config, persist, saving, error } = useConfig();
   const [knobs, setKnobs] = useState<Knobs | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
   const [applied, setApplied] = useState(false);
 
-  useEffect(() => {
-    let cancelled = false;
-    fetchConfig().then(
-      (c) => {
-        if (cancelled) return;
-        setConfig(c);
-        setKnobs(knobsFrom(c));
-      },
-      (e: unknown) => !cancelled && setError(e instanceof Error ? e.message : 'Could not load.'),
-    );
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  // Seed the sliders from the stored plan once it arrives, and re-seed whenever
+  // the other phone changes it — but never while a drag is in progress.
+  const [seededFor, setSeededFor] = useState<Config | null>(null);
+  if (config && config !== seededFor && knobs === null) {
+    setSeededFor(config);
+    setKnobs(knobsFrom(config));
+  }
 
   // Everything here is local until Apply. The stored config is never touched by
   // dragging, so a half-finished thought cannot leak onto the other phone.
@@ -97,24 +89,17 @@ export default function WhatIfPage() {
 
   const apply = useCallback(async () => {
     if (!config || !knobs) return;
-    setSaving(true);
-    try {
-      const next = applyKnobs(config, knobs);
-      await saveConfig(next);
-      await logChange(
-        `Applied a what-if: food ${php(knobs.foodPerDay)}/day, side hustle ${php(
-          knobs.sideHustle,
-        )}/mo, ${knobs.gapMonths} months without income`,
-      );
-      setConfig(next);
-      setApplied(true);
-      setError(null);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not apply.');
-    } finally {
-      setSaving(false);
-    }
-  }, [config, knobs]);
+    const next = applyKnobs(config, knobs);
+    await persist(
+      next,
+      `Applied a what-if: food ${php(knobs.foodPerDay)}/day, side hustle ${php(
+        knobs.sideHustle,
+      )}/mo, ${knobs.gapMonths} months without income`,
+    );
+    setSeededFor(next);
+    setKnobs(knobsFrom(next));
+    setApplied(true);
+  }, [config, knobs, persist]);
 
   return (
     <Screen

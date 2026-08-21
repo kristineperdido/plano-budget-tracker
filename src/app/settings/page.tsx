@@ -4,8 +4,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Screen, Card, Aside } from '@/components/Screen';
 import { AmountField } from '@/components/AmountField';
 import { PayerTag, PersonTag } from '@/components/Payer';
-import type { CategoryDef, Config, Phase } from '@/lib/config';
-import { fetchConfig, logChange, saveConfig } from '@/lib/configStore';
+import type { CategoryDef, Phase } from '@/lib/config';
+import { useConfig } from '@/lib/useConfig';
 import { fetchMembers, type Member } from '@/lib/members';
 import { totalMonths } from '@/lib/engine';
 import { php } from '@/lib/model';
@@ -22,40 +22,17 @@ function slugify(label: string): string {
 }
 
 export default function SettingsPage() {
-  const [config, setConfig] = useState<Config | null>(null);
+  const { config, setConfig, persist, saving, error, setError } = useConfig();
   const [members, setMembers] = useState<Member[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
   const [newCategory, setNewCategory] = useState('');
   const session = useSession();
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all([fetchConfig(), fetchMembers()]).then(
-      ([c, m]) => {
-        if (cancelled) return;
-        setConfig(c);
-        setMembers(m);
-      },
-      (e: unknown) => !cancelled && setError(e instanceof Error ? e.message : 'Could not load.'),
-    );
+    fetchMembers().then((m) => !cancelled && setMembers(m));
     return () => {
       cancelled = true;
     };
-  }, []);
-
-  const persist = useCallback(async (next: Config, note: string) => {
-    setConfig(next);
-    setSaving(true);
-    try {
-      await saveConfig(next);
-      await logChange(note);
-      setError(null);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not save.');
-    } finally {
-      setSaving(false);
-    }
   }, []);
 
   const updatePhase = useCallback(
@@ -108,7 +85,7 @@ export default function SettingsPage() {
       },
       `Added the ${label} category`,
     );
-  }, [config, newCategory, persist]);
+  }, [config, newCategory, persist, setError]);
 
   const removeCategory = useCallback(
     (c: CategoryDef) => {

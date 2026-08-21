@@ -18,8 +18,8 @@ import { fetchNoSpendDays, markNoSpend } from '@/lib/days';
 import { Unaccounted } from '@/components/Unaccounted';
 import { supabase } from '@/lib/supabase';
 import { fetchMembers, type Member } from '@/lib/members';
-import { fetchConfig } from '@/lib/configStore';
-import { DEFAULT_CONFIG, type Config } from '@/lib/config';
+import { useConfig } from '@/lib/useConfig';
+import { DEFAULT_CONFIG } from '@/lib/config';
 import { useSession } from '@/components/AuthGate';
 import type { FoodEntry } from '@/lib/types';
 import { settle } from '@/lib/close';
@@ -31,7 +31,7 @@ const RECENT_DAYS = 14;
 export default function TodayPage() {
   const [today, setToday] = useState(todayISO);
   const [entries, setEntries] = useState<FoodEntry[]>([]);
-  const [config, setConfig] = useState<Config | null>(null);
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -45,6 +45,8 @@ export default function TodayPage() {
   const [savings, setSavings] = useState<SavingsEntry[] | null>(null);
   const [noSpend, setNoSpend] = useState<string[]>([]);
   const session = useSession();
+  // The daily budget, the categories and the pot name all live in the config.
+  const { config } = useConfig();
 
   // The window has to cover the whole current month (the buffer is
   // month-to-date) as well as the recent-days list, which can reach back past
@@ -77,23 +79,6 @@ export default function TodayPage() {
       cancelled = true;
     };
   }, [from, today, reloadKey]);
-
-  // The daily budget and the category list both live in the config blob.
-  useEffect(() => {
-    let cancelled = false;
-    fetchConfig().then(
-      (c) => {
-        if (!cancelled) setConfig(c);
-      },
-      () => {
-        // A missing config must not blank the screen; fall back to the defaults.
-        if (!cancelled) setConfig(DEFAULT_CONFIG);
-      },
-    );
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   useEffect(() => {
     let cancelled = false;
