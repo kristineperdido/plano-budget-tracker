@@ -13,6 +13,9 @@ import {
 } from '@/lib/config';
 import { fetchConfig, logChange, saveConfig } from '@/lib/configStore';
 import { foodForecast } from '@/lib/engine';
+import { fetchBills, recordBill, type BillPayment } from '@/lib/bills';
+import { monthOf } from '@/lib/close';
+import { todayISO } from '@/lib/date';
 import { php } from '@/lib/model';
 
 const PAYERS: Payer[] = ['her', 'him', 'split', 'each'];
@@ -33,6 +36,8 @@ export default function LedgerPage() {
   const [saving, setSaving] = useState(false);
   // Cadence, payer and start-month chips only appear on the row being edited.
   const [editing, setEditing] = useState<string | null>(null);
+  const [bills, setBills] = useState<BillPayment[]>([]);
+  const [thisMonth] = useState(() => monthOf(todayISO()));
 
   useEffect(() => {
     let cancelled = false;
@@ -44,6 +49,45 @@ export default function LedgerPage() {
       cancelled = true;
     };
   }, []);
+
+  // What the monthly bills have actually come to this month.
+  useEffect(() => {
+    let cancelled = false;
+    fetchBills(thisMonth).then(
+      (b) => !cancelled && setBills(b),
+      // Actuals are an overlay; the plan still has to render without them.
+      () => !cancelled && setBills([]),
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [thisMonth]);
+
+  const actualFor = useCallback(
+    (itemId: string) =>
+      bills.find((b) => b.item_id === itemId && b.for_month === thisMonth)?.amount ?? null,
+    [bills, thisMonth],
+  );
+
+  const saveActual = useCallback(
+    async (item: LineItem, amount: number) => {
+      setSaving(true);
+      try {
+        const saved = await recordBill({ item_id: item.id, for_month: thisMonth, amount });
+        setBills((prev) => [
+          ...prev.filter((b) => !(b.item_id === item.id && b.for_month === thisMonth)),
+          saved,
+        ]);
+        await logChange(`${item.label} came to ${php(amount)} in ${thisMonth}`);
+        setError(null);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Could not record it.');
+      } finally {
+        setSaving(false);
+      }
+    },
+    [thisMonth],
+  );
 
   // Persist immediately: two people on two phones, so leaving edits unsaved in
   // local state would quietly diverge.
@@ -185,6 +229,35 @@ export default function LedgerPage() {
 
                       {item.note && !open && (
                         <p className="row-meta -mt-1 mb-2 pl-[61px]">{item.note}</p>
+                      )}
+
+                      {/* What it actually came to. Only monthly bills vary
+                          enough to be worth chasing month by month. */}
+                      {s.cadence === 'monthly' && (
+                        <div className="-mt-1 mb-2 flex items-center gap-2 pl-[61px]">
+                          <span className="row-meta flex-1">
+                            {(() => {
+                              const actual = actualFor(item.id);
+                              if (actual === null) return `${thisMonth} — not recorded`;
+                              const diff = item.amount - actual;
+                              if (Math.abs(diff) < 0.5) return `${thisMonth} — exactly as planned`;
+                              return (
+                                <>
+                                  {thisMonth} —{' '}
+                                  <span className={diff > 0 ? 'tint-green' : 'tint-brick'}>
+                                    {php(Math.abs(diff))} {diff > 0 ? 'under' : 'over'}
+                                  </span>
+                                </>
+                              );
+                            })()}
+                          </span>
+                          <span className="tint-muted text-[11px]">came to</span>
+                          <AmountField
+                            label={`What ${item.label} came to in ${thisMonth}`}
+                            value={actualFor(item.id) ?? item.amount}
+                            onCommit={(v) => void saveActual(item, v)}
+                          />
+                        </div>
                       )}
 
                       {open && (

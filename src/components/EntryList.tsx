@@ -1,10 +1,10 @@
 'use client';
 
-import { php2 } from '@/lib/model';
+import { php, php2 } from '@/lib/model';
 import { type Member } from '@/lib/members';
 import { PersonTag } from '@/components/Payer';
 import { categoryLabel, type CategoryDef } from '@/lib/config';
-import type { FoodEntry } from '@/lib/types';
+import { owedOn, type FoodEntry } from '@/lib/types';
 
 export function EntryList({
   entries,
@@ -35,6 +35,13 @@ export function EntryList({
             <span className="row-label">
               {label}
               {e.note && <span className="row-meta block">{e.note}</span>}
+              {e.share && (
+                <span className="row-meta block tint-gold">
+                  {e.settled_at
+                    ? 'shared · settled'
+                    : `shared · they owe ${php(owedOn(e))}`}
+                </span>
+              )}
             </span>
             {/* Logged money is exact, so it keeps its centavos. */}
             <span className="num text-[14.5px]">{php2(e.amount)}</span>

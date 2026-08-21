@@ -101,6 +101,21 @@ export type LegacyFoodConfig = FoodConfig & {
   coffee?: { cost: number; perWeek: number };
 };
 
+/** The savings target the couple are working toward. */
+export type SavingsConfig = {
+  goalLabel: string;
+  /** Zero means no goal set; the balance is still tracked. */
+  goalAmount: number;
+};
+
+export type SettlementConfig = {
+  /**
+   * What the log sheet offers by default. Settlement is opt-in, so this is
+   * 'none' unless the couple decide most of their spending is shared.
+   */
+  defaultShare: 'none' | 'half';
+};
+
 export type Config = {
   version: 1;
   /** Month 0 of the timeline, as YYYY-MM. */
@@ -109,6 +124,8 @@ export type Config = {
   items: LineItem[];
   moneyIn: MoneyIn[];
   food: FoodConfig;
+  savings: SavingsConfig;
+  settlement: SettlementConfig;
 };
 
 // --------------------------------------------------------------- defaults
@@ -173,6 +190,8 @@ export const DEFAULT_CONFIG: Config = {
     daysPerMonth: 30,
     dailyBudget: 500,
   },
+  savings: { goalLabel: 'Emergency fund', goalAmount: 50000 },
+  settlement: { defaultShare: 'none' },
 };
 
 /** A category id that is no longer configured still has to render. */

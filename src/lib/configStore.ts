@@ -39,6 +39,8 @@ function migrate(stored: Config): Config {
     phases: stored.phases?.length ? stored.phases : DEFAULT_CONFIG.phases,
     items: stored.items?.length ? stored.items : DEFAULT_CONFIG.items,
     moneyIn: stored.moneyIn?.length ? stored.moneyIn : DEFAULT_CONFIG.moneyIn,
+    savings: { ...DEFAULT_CONFIG.savings, ...stored.savings },
+    settlement: { ...DEFAULT_CONFIG.settlement, ...stored.settlement },
   };
 }
 

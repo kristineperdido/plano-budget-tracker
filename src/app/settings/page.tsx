@@ -142,6 +142,86 @@ export default function SettingsPage() {
           </section>
 
           <section>
+            <SectionLabel>The goal</SectionLabel>
+            <div className="row">
+              <span className="row-label">
+                What you&rsquo;re saving for
+                <span className="row-meta block">shown on Today and on Savings</span>
+              </span>
+              <input
+                aria-label="What you are saving for"
+                className="row-label max-w-[9rem] border-b bg-transparent text-right outline-none"
+                style={{ borderColor: 'var(--rule)' }}
+                value={config.savings.goalLabel}
+                onChange={(e) =>
+                  setConfig({
+                    ...config,
+                    savings: { ...config.savings, goalLabel: e.target.value },
+                  })
+                }
+                onBlur={(e) =>
+                  void persist(
+                    { ...config, savings: { ...config.savings, goalLabel: e.target.value } },
+                    `Savings goal renamed to ${e.target.value}`,
+                  )
+                }
+              />
+            </div>
+            <div className="row">
+              <span className="row-label">
+                Target
+                <span className="row-meta block">zero hides the progress bar</span>
+              </span>
+              <AmountField
+                label="Savings target"
+                value={config.savings.goalAmount}
+                onCommit={(v) =>
+                  void persist(
+                    { ...config, savings: { ...config.savings, goalAmount: v } },
+                    `Savings target set to ${php(v)}`,
+                  )
+                }
+              />
+            </div>
+            <Aside tilt={-1.5} className="mt-2">
+              money only lands in savings when someone taps to bank it
+            </Aside>
+          </section>
+
+          <section>
+            <SectionLabel>Sharing</SectionLabel>
+            <div className="row">
+              <span className="row-label">
+                Default for a new log
+                <span className="row-meta block">
+                  you can still change it on any single purchase
+                </span>
+              </span>
+              <button
+                type="button"
+                className="toggle"
+                data-on={config.settlement.defaultShare === 'half'}
+                aria-pressed={config.settlement.defaultShare === 'half'}
+                aria-label="Split new entries 50/50 by default"
+                onClick={() => {
+                  const next = config.settlement.defaultShare === 'half' ? 'none' : 'half';
+                  void persist(
+                    { ...config, settlement: { ...config.settlement, defaultShare: next } },
+                    `New entries default to ${next === 'half' ? '50/50' : 'unshared'}`,
+                  );
+                }}
+              >
+                <span className="toggle-knob" />
+              </button>
+            </div>
+            <Aside tilt={-1.5} className="mt-2">
+              {config.settlement.defaultShare === 'half'
+                ? 'new purchases start as 50/50'
+                : 'new purchases start as nobody owing anything'}
+            </Aside>
+          </section>
+
+          <section>
             <SectionLabel>The basics</SectionLabel>
             <div className="row">
               <span className="row-label">

@@ -8,9 +8,16 @@ import { Aside } from '@/components/Screen';
 import { PersonTag } from '@/components/Payer';
 import { useSession } from '@/components/AuthGate';
 import { fetchMembers, type Member } from '@/lib/members';
-import type { Category } from '@/lib/types';
+import type { Category, Share } from '@/lib/types';
 
-type NewEntry = { spent_on: string; category: Category; amount: number; note?: string };
+type NewEntry = {
+  spent_on: string;
+  category: Category;
+  amount: number;
+  note?: string;
+  share?: Share;
+  owed_amount?: number | null;
+};
 
 /**
  * Logging opens day-type-first: one tap covers most nights. The itemise route
@@ -21,6 +28,7 @@ export function LogSheet({
   today,
   food,
   buffer,
+  defaultShare,
   onClose,
   onSave,
 }: {
@@ -28,6 +36,8 @@ export function LogSheet({
   food: FoodConfig;
   /** What is left in the month's buffer, so the sheet can warn before it tips. */
   buffer: number;
+  /** The settlement the couple usually want, from Settings. */
+  defaultShare: 'none' | 'half';
   onClose: () => void;
   onSave: (rows: NewEntry[]) => Promise<void>;
 }) {
@@ -44,6 +54,10 @@ export function LogSheet({
   const [category, setCategory] = useState<Category>(food.categories[0]?.id ?? 'meals');
   const [amount, setAmount] = useState('');
   const [note, setNote] = useState('');
+
+  // Settlement, opt-in per log. Defaults to whatever Settings says.
+  const [share, setShare] = useState<Share>(defaultShare === 'half' ? 'half' : null);
+  const [owed, setOwed] = useState('');
 
   useEffect(() => {
     let cancelled = false;
@@ -84,9 +98,11 @@ export function LogSheet({
 
   const itemValue = Number(amount);
   const itemValid = amount.trim() !== '' && Number.isFinite(itemValue) && itemValue >= 0;
+  const owedValue = Number(owed);
+  const owedValid = share !== 'fixed' || (owed.trim() !== '' && Number.isFinite(owedValue) && owedValue >= 0);
   const total =
     mode === 'day' ? dayRows.reduce((s, r) => s + r.amount, 0) : itemValid ? itemValue : 0;
-  const canSave = mode === 'day' ? dayRows.length > 0 : itemValid;
+  const canSave = (mode === 'day' ? dayRows.length > 0 : itemValid) && owedValid;
   const overBy = total - buffer;
 
   async function submit(e: React.FormEvent) {
@@ -95,11 +111,29 @@ export function LogSheet({
     setSaving(true);
     setError(null);
     try {
-      await onSave(
+      // A 'fixed' amount describes one purchase, so on a whole-day log it is
+      // applied to the meal line and the extras are left unshared rather than
+      // silently repeating the same figure against each of them.
+      const rows: NewEntry[] =
         mode === 'day'
-          ? dayRows
-          : [{ spent_on: day, category, amount: itemValue, note: note || undefined }],
-      );
+          ? dayRows.map((r, i) =>
+              share === 'fixed'
+                ? i === 0
+                  ? { ...r, share, owed_amount: owedValue }
+                  : r
+                : { ...r, share },
+            )
+          : [
+              {
+                spent_on: day,
+                category,
+                amount: itemValue,
+                note: note || undefined,
+                share,
+                owed_amount: share === 'fixed' ? owedValue : null,
+              },
+            ];
+      await onSave(rows);
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not save.');
@@ -231,6 +265,66 @@ export function LogSheet({
             </label>
           </>
         )}
+
+        {/* Settlement, opt-in. Most spending is just spending, so the default is
+            'mine' and nothing has to be decided to log a normal day. */}
+        <div className="mt-5">
+          <span className="sign-label tint-teal">Who carries this?</span>
+          <div className="mt-1.5 flex flex-wrap gap-1.5">
+            <button
+              type="button"
+              className="chip chip--marker"
+              data-on={share === null}
+              aria-pressed={share === null}
+              onClick={() => setShare(null)}
+            >
+              mine
+            </button>
+            <button
+              type="button"
+              className="chip chip--marker"
+              data-on={share === 'half'}
+              aria-pressed={share === 'half'}
+              onClick={() => setShare('half')}
+            >
+              50/50
+            </button>
+            <button
+              type="button"
+              className="chip chip--marker"
+              data-on={share === 'fixed'}
+              aria-pressed={share === 'fixed'}
+              onClick={() => setShare('fixed')}
+            >
+              they owe…
+            </button>
+          </div>
+
+          {share === 'fixed' && (
+            <label className="mt-2 flex items-baseline gap-2">
+              <span className="tint-muted text-[11.5px]">they owe me</span>
+              <span className="num text-[16px]">₱</span>
+              <input
+                value={owed}
+                onChange={(e) => setOwed(e.target.value)}
+                inputMode="decimal"
+                placeholder="0"
+                aria-label="Amount the other person owes"
+                className="field w-[5rem] text-[16px]"
+              />
+            </label>
+          )}
+
+          {share !== null && (
+            <p className="row-meta mt-1.5">
+              {share === 'half'
+                ? `they owe ${php(total / 2)} of this`
+                : owedValid && owed.trim() !== ''
+                  ? `they owe ${php(owedValue)} of ${php(total)}`
+                  : 'set what they owe'}
+            </p>
+          )}
+        </div>
 
         <div className="mt-4 flex gap-1.5">
           {dayOptions.map((d) => (

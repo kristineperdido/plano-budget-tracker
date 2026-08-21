@@ -14,6 +14,7 @@ const TABS = [
 
 /** Nine screens do not fit four tabs, so the rest live behind MORE. */
 const MORE = [
+  { href: '/savings', label: 'Savings', note: 'the balance and the goal' },
   { href: '/what-if', label: 'What-if', note: 'drag the numbers, nothing saves' },
   { href: '/pending', label: 'Pending', note: 'known, but not yet priced' },
   { href: '/log', label: 'Log', note: 'every change, newest first' },

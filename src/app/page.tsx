@@ -7,8 +7,10 @@ import { LogSheet } from '@/components/LogSheet';
 import { MonthProgress } from '@/components/MonthProgress';
 import { RecentDays } from '@/components/RecentDays';
 import { Screen } from '@/components/Screen';
+import { SettlementPanel } from '@/components/Settlement';
+import { SavingsStrip } from '@/components/SavingsStrip';
 import { addDays, monthStart, todayISO, shortDate } from '@/lib/date';
-import { addEntry, deleteEntry, fetchEntries } from '@/lib/entries';
+import { addEntry, deleteEntry, fetchEntries, settleUp } from '@/lib/entries';
 import { byDay, computeToday, php2 } from '@/lib/model';
 import { supabase } from '@/lib/supabase';
 import { fetchMembers, type Member } from '@/lib/members';
@@ -16,6 +18,8 @@ import { fetchConfig } from '@/lib/configStore';
 import { DEFAULT_CONFIG, type Config } from '@/lib/config';
 import { useSession } from '@/components/AuthGate';
 import type { FoodEntry } from '@/lib/types';
+import { settle } from '@/lib/close';
+import { balanceOf, fetchSavings, type SavingsEntry } from '@/lib/savings';
 
 /** Days of history shown under the fold. */
 const RECENT_DAYS = 14;
@@ -31,6 +35,7 @@ export default function TodayPage() {
   // Bumped by the realtime channel to re-run the fetch effect.
   const [reloadKey, setReloadKey] = useState(0);
   const [members, setMembers] = useState<Member[]>([]);
+  const [savings, setSavings] = useState<SavingsEntry[] | null>(null);
   const session = useSession();
 
   // The window has to cover the whole current month (the buffer is
@@ -92,6 +97,19 @@ export default function TodayPage() {
     };
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+    fetchSavings().then(
+      (rows) => !cancelled && setSavings(rows),
+      // The savings strip is a summary, not the point of this screen; if it
+      // cannot load, the buffer still has to render.
+      () => !cancelled && setSavings([]),
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [reloadKey]);
+
   // Both partners log from their own phones, so mirror changes live.
   useEffect(() => {
     const channel = supabase
@@ -129,12 +147,20 @@ export default function TodayPage() {
     () => byDay(entries.filter((e) => e.spent_on !== today)).slice(0, RECENT_DAYS),
     [entries, today],
   );
+  // Settlement runs over the whole fetched window, not just today, so a debt
+  // from last week is still visible.
+  const outstanding = useMemo(() => settle(entries), [entries]);
 
   async function handleSave(rows: Parameters<typeof addEntry>[0][]) {
     for (const row of rows) {
       const saved = await addEntry(row);
       setEntries((prev) => (prev.some((e) => e.id === saved.id) ? prev : [saved, ...prev]));
     }
+  }
+
+  async function handleSettle() {
+    await settleUp();
+    setReloadKey((k) => k + 1);
   }
 
   async function handleDelete(id: string) {
@@ -190,6 +216,21 @@ export default function TodayPage() {
               />
             </section>
 
+            <SettlementPanel
+              settlement={outstanding}
+              me={session.user.email}
+              members={members}
+              onSettle={handleSettle}
+            />
+
+            {savings && config && (
+              <SavingsStrip
+                balance={balanceOf(savings)}
+                goalLabel={config.savings.goalLabel}
+                goalAmount={config.savings.goalAmount}
+              />
+            )}
+
             <RecentDays days={recent} today={today} dailyBudget={food.dailyBudget} />
           </>
         )}
@@ -209,6 +250,7 @@ export default function TodayPage() {
           today={today}
           food={food}
           buffer={stats.buffer}
+          defaultShare={config?.settlement.defaultShare ?? 'none'}
           onClose={() => setSheetOpen(false)}
           onSave={handleSave}
         />
