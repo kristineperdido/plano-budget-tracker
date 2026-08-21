@@ -82,3 +82,23 @@ export function monthIndexOf(startMonth: string, iso: string): number {
   const { y, m } = parseISO(iso);
   return (y - sy) * 12 + (m - sm);
 }
+
+/** The calendar month (YYYY-MM) that month `i` of a plan falls in. */
+export function monthOfIndex(startMonth: string, i: number): string {
+  const [y, m] = startMonth.split('-').map(Number);
+  const t = m + i;
+  return `${y + Math.floor((t - 1) / 12)}-${String(((t - 1) % 12) + 1).padStart(2, '0')}`;
+}
+
+/**
+ * How many days of a calendar month the budget actually covers. Whole months
+ * are their own length; the month you move in is counted from that day; months
+ * before you move in cover nothing.
+ */
+export function daysCoveredInMonth(startDate: string, month: string): number {
+  const startMonth = startDate.slice(0, 7);
+  if (month < startMonth) return 0;
+  const dim = daysInMonth(`${month}-01`);
+  if (month > startMonth) return dim;
+  return dim - parseISO(startDate).d + 1;
+}

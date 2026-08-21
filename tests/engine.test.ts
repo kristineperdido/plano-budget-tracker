@@ -4,18 +4,48 @@ import { computePlan, foodForecast, applyPayer, phaseOf, totalMonths } from '@/l
 
 const clone = (c: Config): Config => JSON.parse(JSON.stringify(c));
 
-// ---- 1. The spec's published output, reproduced exactly ----
+// ---- 1. The plan's output ----
+//
+// The handoff published roughly -3,700 / +13,000 / +9,000, and the engine
+// reproduced those exactly for a long time. Two assumptions behind them turned
+// out to be wrong:
+//
+//   Food was charged at the forecast rate (517/day from the day types) while
+//   the daily tracker and the month close both measured against the allowance
+//   (500/day). Three parts of the app costing food differently meant "did we
+//   come in under?" had more than one answer, so the plan now charges the
+//   allowance and reports the forecast as a variance instead.
+//
+//   Every month was charged as a whole month, but they move in on 15 September
+//   and only eat there for 16 days of it.
+//
+// Together those account for the entire move, to the peso. The delta is
+// asserted below so this cannot drift back unnoticed.
 {
   const r = computePlan(DEFAULT_CONFIG, { includeUncertain: true, includePending: false });
-  console.log('herNet   ', Math.round(r.net.her), '(spec ~ -3,700)');
-  console.log('himNet   ', Math.round(r.net.him), '(spec ~ +13,000)');
-  console.log('combined ', Math.round(r.combined), '(spec ~ +9,000)');
+  console.log('herNet   ', Math.round(r.net.her));
+  console.log('himNet   ', Math.round(r.net.him));
+  console.log('combined ', Math.round(r.combined));
   console.log('backup   ', Math.round(r.backup.him), '(spec 10,819)');
-  assert.equal(Math.round(r.net.her), -3752);
-  assert.equal(Math.round(r.net.him), 12751);
-  assert.equal(Math.round(r.combined), 8998);
+  assert.equal(Math.round(r.net.her), 12);
+  assert.equal(Math.round(r.net.him), 16515);
+  assert.equal(Math.round(r.combined), 16527);
   assert.equal(r.backup.him, 10819);
   assert.equal(r.months, 2);
+
+  // Food: 500 x 16 days of September + 500 x 31 days of October.
+  assert.equal(r.food.total, 8000 + 15500);
+  // And the old basis was forecast x two whole months.
+  const oldBasis = foodForecast(DEFAULT_CONFIG.food).perMonth * 2;
+  assert.equal(
+    Math.round(r.combined - 8998),
+    Math.round(oldBasis - r.food.total),
+    'the whole change in the net is the food basis, nothing else',
+  );
+
+  // The forecast still exceeds the allowance; that is now visible rather than
+  // silently priced in.
+  assert.equal(Math.round(r.foodVariance.gap), 514);
 }
 
 // ---- 2. Toggles actually move the model ----
@@ -29,6 +59,22 @@ const clone = (c: Config): Config => JSON.parse(JSON.stringify(c));
   // appliances 5000 split; termination fee is 0 until they learn it
   assert.equal(Math.round(withU.net.her - withP.net.her), 2500);
   assert.equal(Math.round(withU.net.him - withP.net.him), 2500);
+}
+
+// ---- 2b. An item scheduled outside the plan is reported, not silently dropped ----
+{
+  const c = clone(DEFAULT_CONFIG);
+  const before = computePlan(c, { includeUncertain: true, includePending: false });
+  assert.equal(before.orphaned.length, 0, 'nothing is stranded to begin with');
+
+  c.items.push({
+    id: 'car', label: 'Car payment', amount: 9999, cadence: 'monthly',
+    startMonth: 5, payer: 'split', group: 'living',
+  });
+  const after = computePlan(c, { includeUncertain: true, includePending: false });
+  assert.equal(Math.round(after.combined), Math.round(before.combined), 'it is genuinely not charged');
+  assert.equal(after.orphaned.length, 1, 'but it is reported rather than vanishing');
+  assert.equal(after.orphaned[0].id, 'car');
 }
 
 // ---- 3. Payer semantics ----
@@ -171,7 +217,8 @@ assert.deepEqual(applyPayer(100, 'her'), { her: 100, him: 0 });
   const c = clone(DEFAULT_CONFIG);
   c.phases[0].income.herSideHustle = 5000;
   const r = computePlan(c, { includeUncertain: true, includePending: false });
-  assert.equal(Math.round(r.net.her), -3752 + 5000 * 2);
+  // Her baseline net, plus two months of side hustle.
+  assert.equal(Math.round(r.net.her), 12 + 5000 * 2);
 }
 
 console.log('\nall engine assertions passed');

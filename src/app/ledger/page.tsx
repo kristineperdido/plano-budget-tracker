@@ -12,7 +12,7 @@ import {
   type Payer,
 } from '@/lib/config';
 import { fetchConfig, logChange, saveConfig } from '@/lib/configStore';
-import { foodForecast } from '@/lib/engine';
+import { foodForecast, householdCost } from '@/lib/engine';
 import { fetchBills, recordBill, type BillPayment } from '@/lib/bills';
 import { monthOf } from '@/lib/close';
 import { todayISO } from '@/lib/date';
@@ -171,7 +171,11 @@ export default function LedgerPage() {
         <>
           {SECTIONS.map((s) => {
             const rows = active.filter((i) => i.cadence === s.cadence);
-            const subtotal = rows.reduce((sum, i) => sum + i.amount, 0);
+            // Household cost, not face value: an 'each' item is paid in full
+            // by both, so a 500 keycard costs the two of them 1,000. Summing
+            // raw amounts here is what made this subtotal read 500 less than
+            // the figure the Plan charges for the very same list.
+            const subtotal = rows.reduce((sum, i) => sum + householdCost(i), 0);
             return (
               <Card key={s.cadence} title={s.title} amount={php(subtotal)}>
                 {rows.length === 0 && <p className="empty py-3">nothing here yet</p>}

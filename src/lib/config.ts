@@ -84,8 +84,13 @@ export type DayType = { id: string; label: string; amount: number; perWeek: numb
  */
 export type Extra = { id: string; label: string; cost: number; perWeek: number };
 
-/** What a logged entry can be filed under. Free-form; edited in Settings. */
-export type CategoryDef = { id: string; label: string };
+/**
+ * What a logged entry can be filed under. Free-form; edited in Settings.
+ * Removing one archives it rather than deleting it, so entries already filed
+ * against it keep showing the name they were filed under instead of falling
+ * back to the raw slug.
+ */
+export type CategoryDef = { id: string; label: string; archived?: boolean };
 
 export type FoodConfig = {
   dayTypes: DayType[];
@@ -214,6 +219,15 @@ export const DEFAULT_CONFIG: Config = {
   settlement: { defaultShare: 'none' },
   pot: { label: 'For eat out' },
 };
+
+/**
+ * A pending item nobody has been able to put a figure on at all. Its worst case
+ * is not zero, it is unknown — and reporting zero exposure for it is worse than
+ * reporting none, because it reads as "no risk here".
+ */
+export function isUnbounded(item: LineItem): boolean {
+  return Boolean(item.pending) && item.amount === 0 && item.estimateHigh === undefined;
+}
 
 /** A category id that is no longer configured still has to render. */
 export function categoryLabel(id: string, categories: CategoryDef[]): string {

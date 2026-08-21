@@ -1,4 +1,4 @@
-import { daysInMonth, monthIndexOf, parseISO } from './date';
+import { daysCoveredInMonth, monthIndexOf } from './date';
 import { phaseOf } from './engine';
 import type { Config, LineItem } from './config';
 import type { BillPayment } from './bills';
@@ -78,10 +78,7 @@ export function closeMonth(
   // The month tracking starts in only counts from the move-in day, so its food
   // budget is pro-rated. Without this, September would be measured against a
   // full month and report a surplus for a fortnight nobody was living here.
-  const days = daysInMonth(`${month}-01`);
-  const startsThisMonth = config.startDate.slice(0, 7) === month;
-  const firstDay = startsThisMonth ? parseISO(config.startDate).d : 1;
-  const daysCovered = month < config.startDate.slice(0, 7) ? 0 : days - firstDay + 1;
+  const daysCovered = daysCoveredInMonth(config.startDate, month);
   const foodBudget = config.food.dailyBudget * daysCovered;
   const foodSpent = entries
     .filter((e) => monthOf(e.spent_on) === month)

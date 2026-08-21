@@ -60,7 +60,8 @@ export function LogSheet({
   const session = useSession();
 
   // Itemised mode.
-  const [category, setCategory] = useState<Category>(food.categories[0]?.id ?? 'meals');
+  const active = food.categories.filter((c) => !c.archived);
+  const [category, setCategory] = useState<Category>(active[0]?.id ?? 'meals');
   const [amount, setAmount] = useState('');
   const [note, setNote] = useState('');
 
@@ -235,7 +236,7 @@ export function LogSheet({
         ) : (
           <>
             <div className="mb-4 flex flex-wrap gap-1.5">
-              {food.categories.map((c) => (
+              {active.map((c) => (
                 <button
                   key={c.id}
                   type="button"

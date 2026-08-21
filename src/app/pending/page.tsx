@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Screen, Card, Aside } from '@/components/Screen';
 import { AmountField } from '@/components/AmountField';
 import { PayerTag } from '@/components/Payer';
-import type { Config, LineItem } from '@/lib/config';
+import { isUnbounded, type Config, type LineItem } from '@/lib/config';
 import { fetchConfig, logChange, saveConfig } from '@/lib/configStore';
 import { computePlan } from '@/lib/engine';
 import { php } from '@/lib/model';
@@ -62,6 +62,7 @@ export default function PendingPage() {
   }, [config]);
 
   const exposure = now && worst ? now.combined - worst.combined : 0;
+  const unbounded = pending.filter(isUnbounded);
 
   return (
     <Screen title="Pending" meta={config ? `${pending.length} items` : undefined}>
@@ -94,7 +95,7 @@ export default function PendingPage() {
           )}
 
           {pending.map((item) => {
-            const unknown = item.amount === 0 && item.estimateHigh === undefined;
+            const unknown = isUnbounded(item);
             return (
               <div key={item.id} className="panel mt-4">
                 <span className="tape" style={{ left: 20 }} aria-hidden />
@@ -211,12 +212,27 @@ export default function PendingPage() {
           {pending.length > 0 && now && worst && (
             <div className="panel mt-4">
               <div className="leader">
-                <span className="sign-label tint-teal">If they all land high</span>
+                <span className="sign-label tint-teal">
+                  {unbounded.length > 0 ? 'At least' : 'If they all land high'}
+                </span>
                 <span className="leader-fill" aria-hidden />
                 <span className="num tint-gold text-[14px]">−{php(exposure)}</span>
               </div>
+
+              {/* An item nobody can price has no worst case. Reporting its
+                  exposure as zero would read as "no risk here", which is the
+                  opposite of true, so it is named rather than totalled. */}
+              {unbounded.length > 0 && (
+                <Aside tilt={-1.5} tint="gold" className="mt-2">
+                  plus {unbounded.map((i) => i.label.toLowerCase()).join(' and ')}, which
+                  {unbounded.length === 1 ? ' has' : ' have'} no figure at all — this total is a
+                  floor, not a worst case
+                </Aside>
+              )}
+
               <Aside tilt={-1.5} tint={worst.combined >= 0 ? 'green' : 'brick'} className="mt-2">
-                combined lands at {php(worst.combined)} —{' '}
+                combined lands at {php(worst.combined)}
+                {unbounded.length > 0 ? ' before those' : ''} —{' '}
                 {worst.combined >= 0 ? 'still holds' : 'that would not hold'}
               </Aside>
             </div>

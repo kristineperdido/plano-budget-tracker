@@ -1,3 +1,4 @@
+import { daysCoveredInMonth, monthOfIndex } from './date';
 import type { Config, FoodConfig, LineItem, Payer, Phase } from './config';
 
 export type ExtraForecast = {
@@ -41,6 +42,17 @@ export function foodForecast(food: FoodConfig) {
     perMonth: (foodPerDay + extrasPerDay) * food.daysPerMonth,
     budgetPerMonth: food.dailyBudget * food.daysPerMonth,
   };
+}
+
+/**
+ * What a line item costs the household, as opposed to its face value. An
+ * 'each' item is paid in full by both of them, so a 500 keycard removes 1,000
+ * from the household. Summing raw amounts instead is what made the Ledger's
+ * move-in subtotal read 38,583 while the engine charged 39,083.
+ */
+export function householdCost(item: LineItem, payer: Payer = item.payer): number {
+  const s = applyPayer(item.amount, payer);
+  return s.her + s.him;
 }
 
 export type Split = { her: number; him: number };
@@ -104,6 +116,13 @@ export type ItemBreakdown = {
 
 export type PlanResult = {
   months: number;
+  /**
+   * Items the plan never charges because their start month falls outside it.
+   * Silently dropping them made a 9,999/month cost change the net by nothing.
+   */
+  orphaned: LineItem[];
+  /** What the day types imply per month, against what has been budgeted. */
+  foodVariance: { budgeted: number; forecast: number; gap: number };
   /** Per line item, across the whole timeline. */
   items: ItemBreakdown[];
   food: { total: number; split: Split; perMonth: number };
@@ -143,14 +162,25 @@ export function computePlan(config: Config, options: Options): PlanResult {
 
   let costs = breakdowns.reduce((s, b) => add(s, b.split), ZERO);
 
-  // Food is a derived monthly line, charged per the phase in force that month.
+  // Food is charged at the allowance, not the forecast — the same basis the
+  // daily tracker and the month close use, so all three agree on what a month
+  // of food costs. The forecast is reported separately as a variance: if the
+  // day types imply more than the allowance, that is worth seeing, not worth
+  // quietly baking into the plan.
+  //
+  // Each month is charged for the days it actually covers, so a mid-month
+  // move-in is not billed for a fortnight nobody was living there.
   let foodTotal = 0;
   let foodSplit = ZERO;
+  let foodBudgetedPerMonth = 0;
   for (let m = 0; m < months; m++) {
     const phase = phaseOf(config.phases, m);
     if (!phase) continue;
-    foodTotal += forecast.perMonth;
-    foodSplit = add(foodSplit, applyPayer(forecast.perMonth, phase.foodPayer));
+    const cal = monthOfIndex(config.startMonth, m);
+    const monthFood = config.food.dailyBudget * daysCoveredInMonth(config.startDate, cal);
+    foodTotal += monthFood;
+    foodBudgetedPerMonth = config.food.dailyBudget * config.food.daysPerMonth;
+    foodSplit = add(foodSplit, applyPayer(monthFood, phase.foodPayer));
   }
   costs = add(costs, foodSplit);
 
@@ -182,6 +212,12 @@ export function computePlan(config: Config, options: Options): PlanResult {
 
   return {
     months,
+    orphaned: items.filter((i) => !breakdowns.find((b) => b.item.id === i.id)?.occurrences),
+    foodVariance: {
+      budgeted: foodBudgetedPerMonth,
+      forecast: forecast.perMonth,
+      gap: forecast.perMonth - foodBudgetedPerMonth,
+    },
     items: breakdowns,
     food: { total: foodTotal, split: foodSplit, perMonth: forecast.perMonth },
     costs,

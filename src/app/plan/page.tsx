@@ -16,7 +16,9 @@ export default function PlanPage() {
   const [config, setConfig] = useState<Config | null>(null);
   const [entries, setEntries] = useState<FoodEntry[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [includeUncertain, setIncludeUncertain] = useState(true);
+  // Off by default. Counting the brother's repayment as money in hand is what
+  // made the headline read +8,998 while the committed position was short.
+  const [includeUncertain, setIncludeUncertain] = useState(false);
   const [includePending, setIncludePending] = useState(false);
   const [viewPhase, setViewPhase] = useState<string | null>(null);
 

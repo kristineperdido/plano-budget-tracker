@@ -78,8 +78,26 @@ export default function SettingsPage() {
       setError('That name has no letters or numbers in it.');
       return;
     }
-    if (config.food.categories.some((c) => c.id === id)) {
+    const existing = config.food.categories.find((c) => c.id === id);
+    if (existing && !existing.archived) {
       setError(`There is already a ${label} category.`);
+      return;
+    }
+    if (existing?.archived) {
+      // Bringing back one that was removed, rather than adding a duplicate id.
+      setNewCategory('');
+      void persist(
+        {
+          ...config,
+          food: {
+            ...config.food,
+            categories: config.food.categories.map((c) =>
+              c.id === id ? { id, label, archived: false } : c,
+            ),
+          },
+        },
+        `Brought back the ${label} category`,
+      );
       return;
     }
     setNewCategory('');
@@ -98,10 +116,7 @@ export default function SettingsPage() {
       void persist(
         {
           ...config,
-          food: {
-            ...config.food,
-            categories: config.food.categories.filter((x) => x.id !== c.id),
-          },
+  
         },
         `Removed the ${c.label} category`,
       );
@@ -471,7 +486,7 @@ export default function SettingsPage() {
           {/* Categories are the thing that used to need a migration to change. */}
           <Card
             title="Categories"
-            amount={`${config.food.categories.length}`}
+            amount={`${config.food.categories.filter((c) => !c.archived).length}`}
             className="mb-8"
           >
             <p className="tint-muted mb-2 text-[12.5px]">
@@ -479,7 +494,7 @@ export default function SettingsPage() {
               against it alone — they keep showing their old name.
             </p>
 
-            {config.food.categories.map((c) => (
+            {config.food.categories.filter((c) => !c.archived).map((c) => (
               <div key={c.id} className="row">
                 <span className="row-label">
                   {c.label}
