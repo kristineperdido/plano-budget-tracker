@@ -379,15 +379,26 @@ button {
   color: var(--brick);
   border: 1px solid var(--brick);
 }
+/* An add affordance, not an empty field. Sitting flush under rows that each
+   carry a dotted underline and a text input, a full-width 1px dashed box read
+   as one more input. It is narrower than a row, centred, with a longer dash and
+   its own breathing room, so it reads as something to press. */
 .btn--dashed {
+  display: block;
+  width: auto;
+  margin: 14px auto 2px;
+  padding: 9px 18px;
   background: transparent;
-  border: 1px dashed var(--rule);
+  border: 0;
+  border-radius: 999px;
+  outline: 1px dashed var(--rule-soft);
+  outline-offset: 0;
   color: var(--charcoal);
-  font: 600 18px/1 var(--marker);
+  font: 600 17px/1 var(--marker);
   letter-spacing: 0;
   text-transform: none;
-  padding: 12px 0;
 }
+.btn--dashed:active { outline-color: var(--ink); color: var(--ink); }
 
 /* A tappable option row — day types, phases, payer picks. */
 .chip {

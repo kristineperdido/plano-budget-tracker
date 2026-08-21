@@ -17,7 +17,7 @@ import { logChange } from '@/lib/configStore';
 import { useConfig } from '@/lib/useConfig';
 import { foodForecast, householdCost } from '@/lib/engine';
 import { fetchBills, recordBill, type BillPayment } from '@/lib/bills';
-import { monthOf } from '@/lib/close';
+import { billsDueIn, monthOf } from '@/lib/close';
 import { monthOfIndex, todayISO } from '@/lib/date';
 import { php } from '@/lib/model';
 
@@ -76,6 +76,18 @@ export default function LedgerPage() {
     [config, thisMonth],
   );
 
+  /**
+   * Whether this item can have a figure recorded right now. The month has to be
+   * one the plan covers: before it began, `billsDueIn` returns nothing, so a
+   * figure typed here would be written against a month the month-close never
+   * reads and would sit orphaned in the table forever.
+   */
+  const recordable = useCallback(
+    (item: LineItem) =>
+      Boolean(config) && billsDueIn(config!, billMonth(item)).some((i) => i.id === item.id),
+    [config, billMonth],
+  );
+
   const actualFor = useCallback(
     (item: LineItem) =>
       bills.find((b) => b.item_id === item.id && b.for_month === billMonth(item))?.amount ?? null,
@@ -83,6 +95,8 @@ export default function LedgerPage() {
   );
 
   const [savingBill, setSavingBill] = useState(false);
+  /** Which row has been opened to type a figure it does not have yet. */
+  const [recording, setRecording] = useState<string | null>(null);
   const saveActual = useCallback(
     async (item: LineItem, amount: number) => {
       const month = billMonth(item);
@@ -238,12 +252,15 @@ export default function LedgerPage() {
 
                       {/* What it actually came to. Only monthly bills vary
                           enough to be worth chasing month by month. */}
-                      {(
+                      {recordable(item) && (
                         <div className="-mt-1 mb-2 flex items-center gap-2 pl-[61px]">
                           <span className="row-status flex-1">
                             {(() => {
                               const actual = actualFor(item);
-                              if (actual === null) return `${shortMonth(billMonth(item))} — not recorded`;
+                              // Just the month when there is nothing yet — the
+                              // button beside it says what is missing, and the
+                              // two together overflowed the card.
+                              if (actual === null) return shortMonth(billMonth(item));
                               const diff = item.amount - actual;
                               if (Math.abs(diff) < 0.5) return `${shortMonth(billMonth(item))} — as planned`;
                               return (
@@ -256,14 +273,30 @@ export default function LedgerPage() {
                               );
                             })()}
                           </span>
-                          <span className="tint-muted whitespace-nowrap text-[11px]">
-                            came to
-                          </span>
-                          <AmountField
-                            label={`What ${item.label} came to in ${billMonth(item)}`}
-                            value={actualFor(item) ?? item.amount}
-                            onCommit={(v) => void saveActual(item, v)}
-                          />
+                          {/* A field pre-filled with the planned amount looks
+                              like a figure that has been recorded. Until one
+                              actually has been, this is a button that says what
+                              it does. */}
+                          {actualFor(item) === null && recording !== item.id ? (
+                            <button
+                              type="button"
+                              className="chip whitespace-nowrap"
+                              onClick={() => setRecording(item.id)}
+                            >
+                              Record
+                            </button>
+                          ) : (
+                            <>
+                              <span className="tint-muted whitespace-nowrap text-[11px]">
+                                came to
+                              </span>
+                              <AmountField
+                                label={`What ${item.label} came to in ${billMonth(item)}`}
+                                value={actualFor(item) ?? item.amount}
+                                onCommit={(v) => void saveActual(item, v)}
+                              />
+                            </>
+                          )}
                         </div>
                       )}
 
