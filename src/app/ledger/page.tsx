@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AmountField } from '@/components/AmountField';
 import { Screen, Card, Aside } from '@/components/Screen';
 import { PayerTag } from '@/components/Payer';
+import { FoodEditor } from '@/components/FoodEditor';
 import {
   PAYER_DESCRIPTION,
   PAYER_LABEL,
@@ -348,20 +349,12 @@ export default function LedgerPage() {
             );
           })}
 
-          {/* Food is computed from the day types, so it is shown but never edited here. */}
+          {/* Food sits with the other costs rather than behind a screen of its
+              own: it is the largest recurring line in the plan, and the day
+              types that produce it are the thing you actually adjust. */}
           {forecast && (
-            <Card title="Food" amount={php(forecast.perMonth)}>
-              <p className="row-meta -mt-1 mb-2">
-                worked out from your day types · set on the Food screen
-              </p>
-              <div className="row">
-                <PayerTag payer="split" />
-                <span className="row-label">
-                  Meals and extras
-                  <span className="row-meta block">edited on the Food screen</span>
-                </span>
-                <span className="marker tint-gold text-[17px]">derived</span>
-              </div>
+            <Card title="Food" amount={`${php(forecast.perMonth)}/mo`}>
+              <FoodEditor config={config} setConfig={setConfig} persist={persist} />
             </Card>
           )}
 

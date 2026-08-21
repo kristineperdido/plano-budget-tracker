@@ -3,7 +3,7 @@
 import { AmountField } from '@/components/AmountField';
 import { Tally } from '@/components/Tally';
 import { Aside } from '@/components/Screen';
-import type { Config, DayType, Extra } from '@/lib/config';
+import { dayTypeTint, type Config, type DayType, type Extra } from '@/lib/config';
 import { foodForecast } from '@/lib/engine';
 import { php } from '@/lib/model';
 
@@ -84,7 +84,7 @@ export function FoodEditor({
             />
           </div>
           <div className="mt-1 flex items-center gap-2.5">
-            <Tally count={t.perWeek} max={7} />
+            <Tally count={t.perWeek} tint={dayTypeTint(config.food.dayTypes, t.id)} max={7} />
             <span className="flex-1" />
             <span className="tint-muted text-[11.5px]">days a week</span>
             <AmountField
@@ -149,7 +149,7 @@ export function FoodEditor({
           </div>
 
           <div className="mt-1.5 flex items-center gap-2.5">
-            <Tally count={e.perWeek} tint="gold" max={7} />
+            <Tally count={e.perWeek} max={7} />
             <span className="flex-1" />
             <span className="tint-muted text-[11.5px]">runs a week</span>
             <AmountField

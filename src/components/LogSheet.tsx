@@ -171,8 +171,9 @@ export function LogSheet({
     <>
       <button type="button" className="scrim" aria-label="Close" onClick={onClose} />
       <form className="sheet" onSubmit={submit} role="dialog" aria-modal="true" aria-label="Log a day">
-        <span className="tape" style={{ left: 30 }} aria-hidden />
-        <span className="tape tape-r" style={{ right: 34 }} aria-hidden />
+        <span className="tape tape--sheet" style={{ left: 30 }} aria-hidden />
+        <span className="tape tape-r tape--sheet" style={{ right: 34 }} aria-hidden />
+        <div className="sheet-body">
 
         <div className="mb-1 flex items-baseline justify-between">
           <h2 className="sign text-[17px]">
@@ -427,6 +428,7 @@ export function LogSheet({
           >
             {mode === 'day' ? 'Itemise' : 'Back'}
           </button>
+        </div>
         </div>
       </form>
     </>

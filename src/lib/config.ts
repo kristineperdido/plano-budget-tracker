@@ -199,9 +199,9 @@ export const DEFAULT_CONFIG: Config = {
   ],
   food: {
     dayTypes: [
-      { id: 'lean',   label: 'Lean',   amount: 160, perWeek: 2 },
-      { id: 'normal', label: 'Normal', amount: 450, perWeek: 3 },
-      { id: 'loose',  label: 'Loose',  amount: 780, perWeek: 2 },
+      { id: 'lean',   label: 'Tipid',            amount: 160, perWeek: 2 },
+      { id: 'normal', label: 'Not-so-tipid',     amount: 450, perWeek: 3 },
+      { id: 'loose',  label: 'Not tipid at all', amount: 780, perWeek: 2 },
     ],
     extras: [{ id: 'coffee', label: 'Coffee', cost: 130, perWeek: 3 }],
     categories: [
@@ -222,6 +222,19 @@ export const DEFAULT_CONFIG: Config = {
   settlement: { defaultShare: 'none' },
   pot: { label: 'For eat out' },
 };
+
+/**
+ * How a kind of day reads at a glance: green for the cheap one, brick for the
+ * dear one, gold for anything in between. Ranked by cost rather than by
+ * position, so adding or reordering day types keeps the meaning intact.
+ */
+export function dayTypeTint(dayTypes: DayType[], id: string): 'green' | 'gold' | 'brick' {
+  const sorted = [...dayTypes].sort((a, b) => a.amount - b.amount);
+  if (sorted.length < 2) return 'green';
+  if (sorted[0].id === id) return 'green';
+  if (sorted[sorted.length - 1].id === id) return 'brick';
+  return 'gold';
+}
 
 /**
  * A pending item nobody has been able to put a figure on at all. Its worst case

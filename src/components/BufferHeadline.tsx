@@ -23,6 +23,22 @@ export function BufferHeadline({
   onView: (v: View) => void;
   potLabel: string;
 }) {
+  if (!envelope.started) {
+    return (
+      <section className="relative pt-5 pb-4 text-center">
+        <p className="sign-label tint-teal" style={{ letterSpacing: '0.2em' }}>
+          Starts
+        </p>
+        <p className="num num-hero tint-muted mt-2">{envelope.daysCovered}</p>
+        <p className="tint-muted mt-3 text-[12.5px] leading-[1.5]">
+          days of this month will be tracked
+          <br />
+          {php(envelope.monthlyBudget)} for the part-month
+        </p>
+      </section>
+    );
+  }
+
   const daily = view === 'day';
   const value = daily ? envelope.leftToday : envelope.leftThisMonth;
   const over = value < 0;

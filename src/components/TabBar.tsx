@@ -41,6 +41,8 @@ export function TabBar() {
             onClick={() => setOpen(false)}
           />
           <div className="sheet" role="dialog" aria-label="More screens">
+            <span className="tape tape--sheet" style={{ left: 28 }} aria-hidden />
+            <div className="sheet-body">
             <h2 className="sign-label tint-teal mb-3">More</h2>
             {MORE.map((m) => (
               <Link
@@ -64,6 +66,7 @@ export function TabBar() {
             >
               Sign out
             </button>
+            </div>
           </div>
         </>
       )}

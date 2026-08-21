@@ -46,7 +46,7 @@ export default function TodayPage() {
   const [noSpend, setNoSpend] = useState<string[]>([]);
   const session = useSession();
   // The daily budget, the categories and the pot name all live in the config.
-  const { config } = useConfig();
+  const { config, persist } = useConfig();
 
   // The window has to cover the whole current month (the buffer is
   // month-to-date) as well as the recent-days list, which can reach back past
@@ -214,19 +214,42 @@ export default function TodayPage() {
 
         {loading ? (
           <p className="empty py-16 text-center">reading the ledger…</p>
-        ) : !envelope.started ? (
-          <Card title="Not started yet">
-            <p className="text-[13.5px]">
-              Tracking begins on{' '}
-              <span className="num">{config?.startDate ?? DEFAULT_CONFIG.startDate}</span>, the
-              day you move in.
-            </p>
-            <Aside tilt={-1.5} className="mt-2">
-              nothing is counted before then — change the date in Settings
-            </Aside>
-          </Card>
         ) : (
           <>
+            {!envelope.started && config && (
+              <Card title="Not started yet">
+                <p className="text-[13.5px]">
+                  Tracking begins on{' '}
+                  <span className="num">{config.startDate}</span>. Nothing before then counts
+                  toward the daily limit, {config.pot.label.toLowerCase()} or savings.
+                </p>
+                <Aside tilt={-1.5} tint="gold" className="mt-2">
+                  moving in early? start it today instead
+                </Aside>
+                <button
+                  type="button"
+                  className="btn btn--ghost mt-3"
+                  onClick={() => {
+                    if (
+                      !window.confirm(
+                        `Start tracking from ${today} instead of ${config.startDate}?\n\n` +
+                          "This month's budget will be counted from today, and anything " +
+                          'logged from now on will count. It can be changed back in Settings.',
+                      )
+                    ) {
+                      return;
+                    }
+                    void persist(
+                      { ...config, startDate: today },
+                      `Tracking started early, on ${today}`,
+                    );
+                  }}
+                >
+                  Start today instead
+                </button>
+              </Card>
+            )}
+
             <Hero>
               <BufferHeadline
                 envelope={envelope}
@@ -236,18 +259,22 @@ export default function TodayPage() {
               />
             </Hero>
 
-            <PotPanel
-              envelope={envelope}
+            {envelope.started && (
+              <PotPanel
+                envelope={envelope}
               label={config?.pot.label ?? 'For eat out'}
-              onSpend={() => {
-                setSheetFromPot(true);
-                setSheetOpen(true);
-              }}
-            />
+                onSpend={() => {
+                  setSheetFromPot(true);
+                  setSheetOpen(true);
+                }}
+              />
+            )}
 
-            <div className="mt-4">
-              <MonthProgress envelope={envelope} today={today} />
-            </div>
+            {envelope.started && (
+              <div className="mt-4">
+                <MonthProgress envelope={envelope} today={today} />
+              </div>
+            )}
 
             <Unaccounted
               days={envelope.unaccounted}
@@ -287,19 +314,26 @@ export default function TodayPage() {
         )}
       </Screen>
 
+      {/* Logging is blocked until tracking starts: an entry before the start
+          date is invisible to the envelope, so it would look accepted and then
+          count for nothing. */}
       <button
         type="button"
         onClick={() => {
+          if (!envelope.started) return;
           setSheetFromPot(false);
           setSheetOpen(true);
         }}
-        aria-label="Log a day"
+        disabled={!envelope.started}
+        aria-label={envelope.started ? 'Log a day' : 'Logging starts once tracking has begun'}
+        title={envelope.started ? undefined : 'Tracking has not started yet'}
         className="fab"
+        style={envelope.started ? undefined : { opacity: 0.4, boxShadow: 'none' }}
       >
         +
       </button>
 
-      {sheetOpen && (
+      {sheetOpen && envelope.started && (
         <LogSheet
           today={today}
           food={food}

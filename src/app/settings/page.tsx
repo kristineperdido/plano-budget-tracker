@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Screen, Card, Aside } from '@/components/Screen';
-import { FoodEditor } from '@/components/FoodEditor';
 import { AmountField } from '@/components/AmountField';
 import { PayerTag, PersonTag } from '@/components/Payer';
 import type { CategoryDef, Phase } from '@/lib/config';
@@ -329,10 +328,6 @@ export default function SettingsPage() {
             <Aside tilt={-1.5} className="mt-2">
               a day rolls over at midnight in Manila, wherever the phone thinks it is
             </Aside>
-          </Card>
-
-          <Card title="Food">
-            <FoodEditor config={config} setConfig={setConfig} persist={persist} />
           </Card>
 
           <Card title="Phases" amount={`${months} months`}>
