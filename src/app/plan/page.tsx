@@ -26,6 +26,8 @@ export default function PlanPage() {
   const [viewPhase, setViewPhase] = useState<string | null>(null);
   /** Read every figure per month, or across the whole stretch. */
   const [per, setPer] = useState<'month' | 'phase'>('month');
+  /** Whether the plan is allowed to spend the reserve that is meant to stay put. */
+  const [useBackup, setUseBackup] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
@@ -142,7 +144,17 @@ export default function PlanPage() {
     };
   }, [config, entries]);
 
-  const flow = useMemo(() => (config ? computeCashflow(config) : null), [config]);
+  // The toggles govern the runway and the month-by-month table too. They used
+  // to move neither: the cashflow ignored them outright, and in a phase-scoped
+  // per-month view neither could reach the score either — both pending items
+  // are one-time, and money-in is excluded from a windowed calculation.
+  const flow = useMemo(
+    () =>
+      config
+        ? computeCashflow(config, { includeUncertain, includePending, useBackup })
+        : null,
+    [config, includeUncertain, includePending, useBackup],
+  );
 
   return (
     <Screen title="Plan" meta={plan ? `${months} months` : undefined}>
@@ -277,6 +289,12 @@ export default function PlanPage() {
               <span className="row-meta">{per === 'month' ? 'per month' : 'total'}</span>
             </div>
 
+            {/* A bare figure under a name says nothing about what it is. */}
+            <p className="row-meta mb-2">
+              what each of you has left {per === 'month' ? 'each month' : 'over the stretch'},
+              after your own share of the costs
+            </p>
+
             <div className="flex gap-3">
               {(['her', 'him'] as const).map((who) => (
                 <div key={who} className="flex-1">
@@ -284,12 +302,16 @@ export default function PlanPage() {
                   <div className="mt-1.5">
                     <Signed value={scale(net[who])} size="20px" />
                   </div>
+                  <p className="row-meta mt-0.5">
+                    {php(scale(who === 'her' ? scoped.income.her : scoped.income.him))} in ·{' '}
+                    {php(scale(split.recurring[who]))} out
+                  </p>
                 </div>
               ))}
             </div>
 
             <div className="leader mt-4 border-t pt-3" style={{ borderColor: 'var(--rule)' }}>
-              <span className="sign-label">Combined</span>
+              <span className="sign-label">Between you</span>
               <span className="leader-fill" aria-hidden />
               <Signed value={scale(net.her + net.him)} size="27px" />
             </div>
@@ -334,6 +356,18 @@ export default function PlanPage() {
               onClick={() => setIncludePending((v) => !v)}
             >
               Pending items {includePending ? 'on' : 'off'}
+            </button>
+          </div>
+
+          <div className="mt-1.5 flex gap-2">
+            <button
+              type="button"
+              className="chip flex-1"
+              data-on={useBackup}
+              aria-pressed={useBackup}
+              onClick={() => setUseBackup((v) => !v)}
+            >
+              {useBackup ? 'May touch the reserve' : "Won't touch the reserve"}
             </button>
           </div>
 

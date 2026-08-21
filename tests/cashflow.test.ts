@@ -81,6 +81,38 @@ const round = (x: number) => Math.round(x);
   console.log(`  without the repayment it runs dry in ${f.firstMonthShort}`);
 }
 
+// ---- 2d. The toggles actually move the cashflow ----
+//
+// They used to move nothing: computeCashflow ignored them entirely, so the
+// controls on Plan were inert.
+{
+  const all = { includeUncertain: true, includePending: false, useBackup: true };
+
+  const withUncertain = computeCashflow(DEFAULT_CONFIG, all);
+  const without = computeCashflow(DEFAULT_CONFIG, { ...all, includeUncertain: false });
+  assert.equal(withUncertain.reserves.uncertain, 10000);
+  assert.equal(without.reserves.uncertain, 0, 'the repayment stops counting');
+  assert.notEqual(without.firstMonthShort, withUncertain.firstMonthShort, 'and the runway shortens');
+
+  // Pending costs are charged only when asked for.
+  const withPending = computeCashflow(DEFAULT_CONFIG, { ...all, includePending: true });
+  assert.ok(
+    withPending.totalGap > withUncertain.totalGap,
+    'the unpriced costs make the shortfall bigger',
+  );
+
+  // Refusing to touch the reserve is a different question, with a shorter answer.
+  const noBackup = computeCashflow(DEFAULT_CONFIG, { ...all, useBackup: false });
+  assert.equal(noBackup.reserves.backup, 0);
+  assert.ok(
+    noBackup.monthsCovered < withUncertain.monthsCovered,
+    'without the reserve it does not reach the end',
+  );
+  console.log(
+    `  reserve untouched: covers ${noBackup.monthsCovered} months, short from ${noBackup.firstMonthShort}`,
+  );
+}
+
 // ---- 3. Reserves are drawn down in confidence order ----
 {
   const c = clone(DEFAULT_CONFIG);

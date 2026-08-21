@@ -99,11 +99,39 @@ function activeIn(item: LineItem, month: number): boolean {
  * at each point in time, is there anything left to pay with, and what kind of
  * money is it?
  */
-export function computeCashflow(config: Config): Cashflow {
+export type CashflowOptions = {
+  /** Count the repayment nobody has promised in writing as available. */
+  includeUncertain: boolean;
+  /** Charge the costs nobody has been able to price yet. */
+  includePending: boolean;
+  /**
+   * Allow the reserve to be spent. Turning this off answers a different
+   * question — how far the plan goes without touching the savings that were
+   * meant to stay put.
+   */
+  useBackup: boolean;
+};
+
+const ALL_IN: CashflowOptions = {
+  includeUncertain: true,
+  includePending: false,
+  useBackup: true,
+};
+
+export function computeCashflow(
+  config: Config,
+  options: CashflowOptions = ALL_IN,
+): Cashflow {
   const months = totalMonths(config.phases);
 
+  // Reserves only count if the plan is allowed to spend them.
   const reserves = { committed: 0, uncertain: 0, backup: 0 };
-  for (const m of config.moneyIn) reserves[confidenceOf(m)] += m.amount;
+  for (const m of config.moneyIn) {
+    const kind = confidenceOf(m);
+    if (kind === 'uncertain' && !options.includeUncertain) continue;
+    if (kind === 'backup' && !options.useBackup) continue;
+    reserves[kind] += m.amount;
+  }
 
   let committed = reserves.committed;
   let uncertain = reserves.uncertain;
@@ -124,10 +152,10 @@ export function computeCashflow(config: Config): Cashflow {
 
     let bills = 0;
     for (const item of config.items) {
-      // The pending tray is excluded on purpose: these are costs nobody has
-      // been able to price, and folding a guess in would make the plan look
-      // worse than what is actually known.
-      if (item.pending || !activeIn(item, i)) continue;
+      // The pending tray is excluded unless asked for: these are costs nobody
+      // has been able to price, and folding a guess in by default would make
+      // the plan look worse than what is actually known.
+      if ((item.pending && !options.includePending) || !activeIn(item, i)) continue;
       const payer = phase?.payers[item.id] ?? item.payer;
       const s = applyPayer(item.amount, payer);
       bills += s.her + s.him;
