@@ -52,6 +52,13 @@ export type Cashflow = {
   firstMonthNeedingUncertain: string | null;
   /** The first month nothing covers, or null. */
   firstMonthShort: string | null;
+  /**
+   * How far the money actually goes: the last month that can be paid for in
+   * full, and how many months that is. Null when the very first month already
+   * cannot be covered.
+   */
+  lastsUntil: string | null;
+  monthsCovered: number;
   /** Total shortfall across the plan, before any reserves. */
   totalGap: number;
   /** What is left over at the end, counting only committed money. */
@@ -156,11 +163,17 @@ export function computeCashflow(config: Config): Cashflow {
     });
   }
 
+  const covered = out.filter((m) => !m.short);
+  const firstShortIndex = out.findIndex((m) => m.short);
+  const monthsCovered = firstShortIndex === -1 ? out.length : firstShortIndex;
+
   return {
     months: out,
     reserves,
     firstMonthNeedingUncertain,
     firstMonthShort,
+    lastsUntil: monthsCovered === 0 ? null : covered[monthsCovered - 1]?.month ?? null,
+    monthsCovered,
     totalGap,
     endsWith: committed,
   };

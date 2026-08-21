@@ -9,64 +9,56 @@ const round = (x: number) => Math.round(x);
 // ---- 1. The real plan, laid out month by month ----
 {
   const f = computeCashflow(DEFAULT_CONFIG);
-  assert.equal(f.months.length, 2);
+  assert.equal(f.months.length, 5, 'five months, matching jhay\u2019s cutoff sheet');
+  assert.equal(f.months[0].month, '2026-09');
+  assert.equal(f.months[4].month, '2027-01');
 
-  const [sep, oct] = f.months;
-  assert.equal(sep.month, '2026-09');
-  assert.equal(oct.month, '2026-10');
-
-  // September carries every move-in cost, so it cannot pay for itself.
-  assert.ok(sep.gap < 0, 'the move-in month runs a deficit');
-  assert.ok(oct.gap < 0, 'and so does the month after, while she is not earning');
+  // Every month runs a deficit: one income, two people, and the move-in costs
+  // all land in the first.
+  for (const m of f.months) assert.ok(m.gap < 0, `${m.month} cannot pay for itself`);
+  assert.ok(f.months[0].out > f.months[1].out, 'the move-in month is the heaviest');
 
   // Reserves are separated by how much they can be relied on.
-  assert.equal(f.reserves.committed, 40000, "her savings are the only money in hand");
+  assert.equal(f.reserves.committed, 40000, 'her savings are the only money in hand');
   assert.equal(f.reserves.uncertain, 10000, "the brother's repayment is a maybe");
   assert.equal(f.reserves.backup, 10819, 'his savings are held back');
 }
 
-// ---- 2. Committed money alone carries this plan ----
+// ---- 2. How far the money actually goes ----
 //
-// Worth recording how this changed. On the old food basis - the forecast rate,
-// charged for a whole September nobody lived through - the two months needed
-// 41,002 against 40,000 of committed money, so the plan only balanced because
-// the brother's promised 10,000 was being counted as cash. Charging food at the
-// allowance for the days actually lived there took 7,529 off, and it now clears
-// on money in hand.
+// The point of the five-month phase: it answers the runway question. Committed
+// money carries two months, then it leans on the repayment, then on the savings
+// that were meant to stay untouched.
 {
   const f = computeCashflow(DEFAULT_CONFIG);
 
-  assert.equal(round(f.totalGap), 33473, 'the two months need this much beyond income');
-  assert.ok(f.totalGap < f.reserves.committed, 'and committed money covers it');
-  assert.equal(f.firstMonthNeedingUncertain, null, "the brother's money is not load-bearing");
-  assert.equal(f.firstMonthShort, null);
-  assert.equal(round(f.endsWith), 6527, 'what is left in hand at the end');
+  assert.equal(f.firstMonthShort, null, 'nothing is uncovered inside the window');
+  assert.equal(f.monthsCovered, 5);
+  assert.equal(f.lastsUntil, '2027-01');
 
-  // Untouched reserves stay untouched.
-  const last = f.months[f.months.length - 1];
-  assert.equal(last.uncertainLeft, 10000);
-  assert.equal(last.backupLeft, 10819);
+  assert.equal(f.firstMonthNeedingUncertain, '2026-11', 'money in hand runs out in November');
 
-  console.log(`  clears on committed money, ending with ${round(f.endsWith)} in hand`);
-}
+  const jan = f.months[4];
+  assert.ok(jan.needsBackup, 'January is being paid out of the backup savings');
+  const leftAtEnd = jan.committedLeft + jan.uncertainLeft + jan.backupLeft;
+  assert.ok(leftAtEnd > 0 && leftAtEnd < 3000, `only ${Math.round(leftAtEnd)} left by the end`);
 
-// ---- 2b. Losing the uncertain money changes nothing here ----
-{
-  const c = clone(DEFAULT_CONFIG);
-  const withIt = computeCashflow(c).endsWith;
-  c.moneyIn = c.moneyIn.filter((m) => !m.uncertain);
-  assert.equal(round(computeCashflow(c).endsWith), round(withIt), 'it was never being spent');
-}
-
-// ---- 2c. But it does bite if the gap is wider ----
-{
-  const c = clone(DEFAULT_CONFIG);
-  c.phases[0].income.him = 20000; // 7,400 a month less
-  const f = computeCashflow(c);
-  assert.ok(f.firstMonthNeedingUncertain !== null, 'now the promised money is load-bearing');
   console.log(
-    `  on 20,000 a month it leans on uncertain money from ${f.firstMonthNeedingUncertain}`,
+    `  five months: committed runs out ${f.firstMonthNeedingUncertain}, ` +
+      `${Math.round(leftAtEnd)} left at the end`,
   );
+}
+
+// ---- 2b. Losing the uncertain money shortens the runway ----
+{
+  const c = clone(DEFAULT_CONFIG);
+  c.moneyIn = c.moneyIn.filter((m) => !m.uncertain);
+  const f = computeCashflow(c);
+  assert.ok(
+    f.firstMonthShort !== null,
+    'without the repayment the plan does not reach the end of the window',
+  );
+  console.log(`  without the repayment it runs dry in ${f.firstMonthShort}`);
 }
 
 // ---- 3. Reserves are drawn down in confidence order ----

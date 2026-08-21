@@ -6,45 +6,29 @@ const clone = (c: Config): Config => JSON.parse(JSON.stringify(c));
 
 // ---- 1. The plan's output ----
 //
-// The handoff published roughly -3,700 / +13,000 / +9,000, and the engine
-// reproduced those exactly for a long time. Two assumptions behind them turned
-// out to be wrong:
-//
-//   Food was charged at the forecast rate (517/day from the day types) while
-//   the daily tracker and the month close both measured against the allowance
-//   (500/day). Three parts of the app costing food differently meant "did we
-//   come in under?" had more than one answer, so the plan now charges the
-//   allowance and reports the forecast as a variance instead.
-//
-//   Every month was charged as a whole month, but they move in on 15 September
-//   and only eat there for 16 days of it.
-//
-// Together those account for the entire move, to the peso. The delta is
-// asserted below so this cannot drift back unnoticed.
+// Reconciled against jhay's own cutoff spreadsheet. Four corrections came out
+// of that: income is 27,900 (13,950 a cutoff, twice a month), Mama's is 3,000,
+// and Frosty and drinking water stay split — his sheet charged him the whole of
+// both, and double-charged laundry and maintenance by putting a monthly figure
+// in each cutoff. The plan also runs five months now rather than two, to cover
+// the same window his sheet does.
 {
   const r = computePlan(DEFAULT_CONFIG, { includeUncertain: true, includePending: false });
   console.log('herNet   ', Math.round(r.net.her));
   console.log('himNet   ', Math.round(r.net.him));
   console.log('combined ', Math.round(r.combined));
-  console.log('backup   ', Math.round(r.backup.him), '(spec 10,819)');
-  assert.equal(Math.round(r.net.her), 12);
-  assert.equal(Math.round(r.net.him), 16515);
-  assert.equal(Math.round(r.combined), 16527);
+  assert.equal(r.months, 5);
+  assert.equal(Math.round(r.net.her), -24720);
+  assert.equal(Math.round(r.net.him), 16163);
+  assert.equal(Math.round(r.combined), -8558);
   assert.equal(r.backup.him, 10819);
-  assert.equal(r.months, 2);
 
-  // Food: 500 x 16 days of September + 500 x 31 days of October.
-  assert.equal(r.food.total, 8000 + 15500);
-  // And the old basis was forecast x two whole months.
-  const oldBasis = foodForecast(DEFAULT_CONFIG.food).perMonth * 2;
-  assert.equal(
-    Math.round(r.combined - 8998),
-    Math.round(oldBasis - r.food.total),
-    'the whole change in the net is the food basis, nothing else',
-  );
+  // Food is charged at the allowance for the days actually lived there:
+  // 16 of September from the 15th, then whole months.
+  assert.equal(r.food.total, 500 * (16 + 31 + 30 + 31 + 31));
 
-  // The forecast still exceeds the allowance; that is now visible rather than
-  // silently priced in.
+  // The forecast still runs above the allowance, and says so rather than being
+  // quietly priced in.
   assert.equal(Math.round(r.foodVariance.gap), 514);
 }
 
@@ -120,8 +104,9 @@ assert.deepEqual(applyPayer(100, 'her'), { her: 100, him: 0 });
 {
   const r = computePlan(DEFAULT_CONFIG, { includeUncertain: true, includePending: false });
   const by = (id: string) => r.items.find((b) => b.item.id === id)!;
-  assert.equal(by('rent').occurrences, 1, 'rent starts month 1, so once in a 2-month window');
-  assert.equal(by('wifi').occurrences, 2, 'wifi runs from month 0');
+  // Five months mapped: rent from month 1 is four of them, wifi from month 0 all five.
+  assert.equal(by('rent').occurrences, 4, 'rent starts month 1');
+  assert.equal(by('wifi').occurrences, 5, 'wifi runs from month 0');
   assert.equal(by('deposit').occurrences, 1, 'one-time lands once');
   assert.equal(by('deposit').split.him, 0, 'she pays the deposit alone');
   assert.equal(by('keycard').split.her, 500);
@@ -130,15 +115,27 @@ assert.deepEqual(applyPayer(100, 'her'), { her: 100, him: 0 });
 
 // ---- 5. Multi-phase: a second phase changes incomes and payer rules ----
 {
+  // Phases are set outright rather than appended, so this stays a two-phase
+  // scenario however many phases the real plan grows to.
   const c = clone(DEFAULT_CONFIG);
-  c.phases.push({
-    id: 'employed',
-    label: 'She is working',
-    months: 2,
-    income: { her: 20000, him: 27400, herSideHustle: 0 },
-    payers: { rent: 'split', electric: 'split' },
-    foodPayer: 'split',
-  });
+  c.phases = [
+    {
+      id: 'gap',
+      label: 'Between jobs',
+      months: 2,
+      income: { her: 0, him: 27900, herSideHustle: 0 },
+      payers: {},
+      foodPayer: 'split',
+    },
+    {
+      id: 'employed',
+      label: 'She is working',
+      months: 2,
+      income: { her: 20000, him: 27900, herSideHustle: 0 },
+      payers: { rent: 'split', electric: 'split' },
+      foodPayer: 'split',
+    },
+  ];
   const r = computePlan(c, { includeUncertain: true, includePending: false });
   assert.equal(r.months, 4);
 
@@ -150,7 +147,7 @@ assert.deepEqual(applyPayer(100, 'her'), { her: 100, him: 0 });
 
   // Her income only accrues in the second phase.
   assert.equal(r.income.her, 20000 * 2);
-  assert.equal(r.income.him, 27400 * 4);
+  assert.equal(r.income.him, 27900 * 4);
 }
 
 // ---- 6. Phase boundaries ----
@@ -251,8 +248,8 @@ assert.deepEqual(applyPayer(100, 'her'), { her: 100, him: 0 });
   const c = clone(DEFAULT_CONFIG);
   c.phases[0].income.herSideHustle = 5000;
   const r = computePlan(c, { includeUncertain: true, includePending: false });
-  // Her baseline net, plus two months of side hustle.
-  assert.equal(Math.round(r.net.her), 12 + 5000 * 2);
+  // Her baseline net, plus the side hustle for the two months of phase one.
+  assert.equal(Math.round(r.net.her), -24720 + 5000 * 2);
 }
 
 console.log('\nall engine assertions passed');

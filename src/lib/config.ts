@@ -173,7 +173,7 @@ export const DEFAULT_CONFIG: Config = {
     { id: 'wifi',      label: 'WiFi',        amount: 1000,  cadence: 'monthly', startMonth: 0, payer: 'him', group: 'housing', note: 'prepaid' },
     { id: 'laundry',   label: 'Laundry',     amount: 640,   cadence: 'monthly', startMonth: 0, payer: 'him', group: 'living',  note: '₱150–170/week' },
     { id: 'maintenance', label: 'Maintenance', amount: 500, cadence: 'monthly', startMonth: 0, payer: 'him', group: 'housing' },
-    { id: 'mama',      label: "Mama's bills", amount: 2300, cadence: 'monthly', startMonth: 0, payer: 'him', group: 'personal', note: '₱1,500 allowance + ₱800 WiFi' },
+    { id: 'mama',      label: "Mama's bills", amount: 3000, cadence: 'monthly', startMonth: 0, payer: 'him', group: 'personal', note: 'per jhay\u2019s own cutoff sheet' },
     { id: 'frosty',    label: 'Frosty',      amount: 1069,  cadence: 'monthly', startMonth: 0, payer: 'split', group: 'living', note: 'dry ₱777 + wet ₱206 + litter ₱86' },
     { id: 'drinking',  label: 'Drinking water', amount: 86, cadence: 'monthly', startMonth: 0, payer: 'split', group: 'living', note: '~2 weeks per gallon' },
 
@@ -187,7 +187,17 @@ export const DEFAULT_CONFIG: Config = {
       label: 'Between jobs',
       note: 'tin is not earning yet, so jhay carries the rent and the bills',
       months: 2,
-      income: { her: 0, him: 27400, herSideHustle: 0 },
+      // ₱13,950 a cutoff, twice a month.
+      income: { her: 0, him: 27900, herSideHustle: 0 },
+      payers: {},
+      foodPayer: 'split',
+    },
+    {
+      id: 'stretch',
+      label: 'Running on savings',
+      note: 'still no second income — this is the stretch that shows how long the money lasts',
+      months: 3,
+      income: { her: 0, him: 27900, herSideHustle: 0 },
       payers: {},
       foodPayer: 'split',
     },

@@ -89,16 +89,34 @@ export function CashflowPanel({ flow, potLabel }: { flow: Cashflow; potLabel?: s
         )}
       </div>
 
+      {/* How far the money goes, which is the question the long phase exists to
+          answer. Stated in months, because "we last until January" is the thing
+          you actually want to know. */}
+      <div className="leader mt-3 border-t pt-2.5" style={{ borderColor: 'var(--rule)' }}>
+        <span className="sign-label">Lasts</span>
+        <span className="leader-fill" aria-hidden />
+        <span
+          className={`num text-[17px] ${
+            flow.firstMonthShort ? 'tint-brick' : flow.firstMonthNeedingUncertain ? 'tint-gold' : 'tint-green'
+          }`}
+        >
+          {flow.monthsCovered} of {flow.months.length} months
+        </span>
+      </div>
+
       {flow.firstMonthShort ? (
-        <Aside tilt={-1.5} tint="brick" className="mt-3">
-          {flow.firstMonthShort} cannot be paid for, even after everything is drawn on
+        <Aside tilt={-1.5} tint="brick" className="mt-2">
+          {flow.lastsUntil
+            ? `covered through ${flow.lastsUntil}, then ${flow.firstMonthShort} cannot be paid for`
+            : `${flow.firstMonthShort} cannot be paid for at all`}
         </Aside>
       ) : flow.firstMonthNeedingUncertain ? (
-        <Aside tilt={-1.5} tint="gold" className="mt-3">
-          holds only if the uncertain money arrives by {flow.firstMonthNeedingUncertain}
+        <Aside tilt={-1.5} tint="gold" className="mt-2">
+          money in hand runs out in {flow.firstMonthNeedingUncertain} — the rest leans on
+          money you can&rsquo;t count on
         </Aside>
       ) : (
-        <Aside tilt={-1.5} tint="green" className="mt-3">
+        <Aside tilt={-1.5} tint="green" className="mt-2">
           clears on money you already have, with {php(flow.endsWith)} to spare
         </Aside>
       )}
