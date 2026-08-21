@@ -42,6 +42,9 @@ function migrate(stored: Config): Config {
     savings: { ...DEFAULT_CONFIG.savings, ...stored.savings },
     settlement: { ...DEFAULT_CONFIG.settlement, ...stored.settlement },
     pot: { ...DEFAULT_CONFIG.pot, ...stored.pot },
+    // A config written before tracking had a start date would otherwise replay
+    // from the 1st and invent a pot; fall back to the first of its start month.
+    startDate: stored.startDate ?? `${stored.startMonth ?? DEFAULT_CONFIG.startMonth}-01`,
   };
 }
 

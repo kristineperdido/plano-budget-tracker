@@ -128,6 +128,16 @@ export type Config = {
   version: 1;
   /** Month 0 of the timeline, as YYYY-MM. */
   startMonth: string;
+  /**
+   * The first day tracking counts from — the day you actually start sharing a
+   * home, which is rarely the 1st. Before it the daily envelope does not run at
+   * all, and the month it falls in is pro-rated to the days that remain: move
+   * in on the 15th and September's pool is dailyBudget x 16, not x 30.
+   *
+   * Without this the replay treats every earlier day of the month as a frugal
+   * day and sweeps a full allowance into the pot for each one.
+   */
+  startDate: string;
   phases: Phase[];
   items: LineItem[];
   moneyIn: MoneyIn[];
@@ -142,6 +152,7 @@ export type Config = {
 export const DEFAULT_CONFIG: Config = {
   version: 1,
   startMonth: '2026-09',
+  startDate: '2026-09-15',
   items: [
     { id: 'deposit',   label: 'Security deposit', amount: 23000, cadence: 'onetime', startMonth: 0, payer: 'her',   group: 'movein', note: "2 months' rent" },
     { id: 'advance',   label: 'Advance',          amount: 11500, cadence: 'onetime', startMonth: 0, payer: 'her',   group: 'movein', note: 'prepays Month 0 rent' },

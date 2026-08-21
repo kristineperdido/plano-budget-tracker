@@ -39,7 +39,9 @@ const JHAY = 'jhay@example.com';
 
 // ---- 2. Food underspend is the surplus when no bills are recorded ----
 {
-  const c = clone(DEFAULT_CONFIG); // starts 2026-09, dailyBudget 500
+  // Tracked from the 1st, so the whole month counts.
+  const c = clone(DEFAULT_CONFIG);
+  c.startDate = '2026-09-01';
   const entries = [entry({ spent_on: '2026-09-05', amount: 400 })];
   const r = closeMonth(c, '2026-09', entries, [], '2026-10-03');
 
@@ -50,6 +52,25 @@ const JHAY = 'jhay@example.com';
   assert.equal(r.surplus, 14600);
   assert.ok(r.billsMissing > 0, 'and the gap is reported rather than hidden');
   assert.equal(r.complete, true, 'September is closed once it is October');
+}
+
+// ---- 2b. The move-in month is pro-rated to the day you arrive ----
+{
+  const c = clone(DEFAULT_CONFIG); // startDate 2026-09-15
+  const r = closeMonth(c, '2026-09', [], [], '2026-10-03');
+  assert.equal(r.daysCovered, 16, '15th to 30th inclusive');
+  assert.equal(r.foodBudget, 8000, 'not a full 15,000 for a fortnight nobody lived here');
+
+  // A later month is whole.
+  const oct = closeMonth(c, '2026-10', [], [], '2026-11-03');
+  assert.equal(oct.daysCovered, 31);
+  assert.equal(oct.foodBudget, 15500);
+
+  // And a month before the plan begins covers nothing at all.
+  const aug = closeMonth(c, '2026-08', [], [], '2026-10-03');
+  assert.equal(aug.daysCovered, 0);
+  assert.equal(aug.foodBudget, 0);
+  assert.equal(aug.surplus, 0, 'no phantom surplus before you move in');
 }
 
 // ---- 3. Entries outside the month never leak in ----

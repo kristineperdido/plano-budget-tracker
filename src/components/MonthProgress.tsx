@@ -1,17 +1,26 @@
 'use client';
 
-import { php, type TodayStats } from '@/lib/model';
+import { php } from '@/lib/model';
 import { monthNameOf } from '@/lib/date';
 import { Aside } from '@/components/Screen';
+import type { Envelope } from '@/lib/envelope';
 
 /**
- * The month at a glance: the fill is what has been spent, the upright rule is
- * where the month actually is. Fill past the rule means spending is ahead of
- * the calendar, and the bar turns brick to say so.
+ * The month at a glance. Reads off the same envelope as the headline — it used
+ * to run on a separate flat-accrual model, which meant this bar could say "on
+ * pace" while the figure above it said you were over.
  */
-export function MonthProgress({ s, today }: { s: TodayStats; today: string }) {
-  const over = s.spentMonth > s.accrued;
-  const gap = Math.abs(s.buffer);
+export function MonthProgress({ envelope, today }: { envelope: Envelope; today: string }) {
+  const elapsed = envelope.days.length;
+  const through = envelope.daysCovered > 0 ? elapsed / envelope.daysCovered : 0;
+  // What the month should have cost by now, if it were spent evenly.
+  const expected = envelope.monthlyBudget * through;
+  const over = envelope.spentMonth > expected;
+  const gap = Math.abs(envelope.spentMonth - expected);
+  const spentShare =
+    envelope.monthlyBudget > 0
+      ? Math.min(envelope.spentMonth / envelope.monthlyBudget, 1)
+      : 0;
 
   return (
     <div className="panel">
@@ -21,32 +30,26 @@ export function MonthProgress({ s, today }: { s: TodayStats; today: string }) {
         <h2 className="sign-label tint-teal">{monthNameOf(today)}</h2>
         <span className="leader-fill" aria-hidden />
         <span className="num text-[13px]">
-          {php(s.spentMonth)} <span className="tint-muted">/ {php(s.monthlyBudget)}</span>
+          {php(envelope.spentMonth)}{' '}
+          <span className="tint-muted">/ {php(envelope.monthlyBudget)}</span>
         </span>
       </div>
 
       <div className="pace">
         <div
           className={`pace-fill ${over ? 'pace-fill--over' : ''}`}
-          style={{ width: `${s.monthProgress * 100}%` }}
+          style={{ width: `${spentShare * 100}%` }}
         />
-        <div className="pace-marker" style={{ left: `${s.paceProgress * 100}%` }} />
+        <div className="pace-marker" style={{ left: `${Math.min(through, 1) * 100}%` }} />
       </div>
 
       <div className="mt-2 flex items-baseline justify-between gap-3">
         <span className="tint-muted text-[11px]">
-          day {s.daysElapsed} of {s.daysInMonth}
+          day {elapsed} of {envelope.daysCovered}
+          {envelope.daysCovered < envelope.daysInMonth && ' (part month)'}
         </span>
-        {/* The projected figure stays available as the aria label; the aside is the
-            same fact in plainer words. */}
-        <Aside
-          tilt={2.5}
-          tint={over ? 'brick' : 'green'}
-          className="text-right"
-        >
-          <span title={`Projected month-end ${php(s.projectedMonth)}`}>
-            {over ? `${php(gap)} over` : 'on pace'}
-          </span>
+        <Aside tilt={2.5} tint={over ? 'brick' : 'green'} className="text-right">
+          {over ? `${php(gap)} over` : 'on pace'}
         </Aside>
       </div>
     </div>

@@ -7,13 +7,15 @@ import { EntryList } from '@/components/EntryList';
 import { LogSheet } from '@/components/LogSheet';
 import { MonthProgress } from '@/components/MonthProgress';
 import { RecentDays } from '@/components/RecentDays';
-import { Screen, Card, Hero } from '@/components/Screen';
+import { Screen, Card, Hero, Aside } from '@/components/Screen';
 import { SettlementPanel } from '@/components/Settlement';
 import { SavingsStrip } from '@/components/SavingsStrip';
 import { addDays, monthStart, todayISO, shortDate } from '@/lib/date';
 import { addEntry, deleteEntry, fetchEntries, settleUp } from '@/lib/entries';
-import { byDay, computeToday, php2 } from '@/lib/model';
+import { byDay, php2 } from '@/lib/model';
 import { computeEnvelope } from '@/lib/envelope';
+import { fetchNoSpendDays, markNoSpend } from '@/lib/days';
+import { Unaccounted } from '@/components/Unaccounted';
 import { supabase } from '@/lib/supabase';
 import { fetchMembers, type Member } from '@/lib/members';
 import { fetchConfig } from '@/lib/configStore';
@@ -41,6 +43,7 @@ export default function TodayPage() {
   const [reloadKey, setReloadKey] = useState(0);
   const [members, setMembers] = useState<Member[]>([]);
   const [savings, setSavings] = useState<SavingsEntry[] | null>(null);
+  const [noSpend, setNoSpend] = useState<string[]>([]);
   const session = useSession();
 
   // The window has to cover the whole current month (the buffer is
@@ -104,6 +107,19 @@ export default function TodayPage() {
 
   useEffect(() => {
     let cancelled = false;
+    fetchNoSpendDays(from, today).then(
+      (d) => !cancelled && setNoSpend(d),
+      // Without this list every quiet day looks unaccounted, which is the safe
+      // direction to fail in: money stays in the pool rather than in the pot.
+      () => !cancelled && setNoSpend([]),
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [from, today, reloadKey]);
+
+  useEffect(() => {
+    let cancelled = false;
     fetchSavings().then(
       (rows) => !cancelled && setSavings(rows),
       // The savings strip is a summary, not the point of this screen; if it
@@ -140,14 +156,14 @@ export default function TodayPage() {
   }, []);
 
   const food = config?.food ?? DEFAULT_CONFIG.food;
-  const stats = useMemo(
-    () => computeToday(entries, today, food.dailyBudget),
-    [entries, today, food.dailyBudget],
-  );
-  // The dynamic daily limit and the side pot, replayed from the 1st.
+  // The dynamic daily limit and the side pot, replayed from the start date.
   const envelope = useMemo(
-    () => computeEnvelope(entries, today, food.dailyBudget),
-    [entries, today, food.dailyBudget],
+    () =>
+      computeEnvelope(entries, today, food.dailyBudget, {
+        startDate: config?.startDate ?? DEFAULT_CONFIG.startDate,
+        noSpendDays: noSpend,
+      }),
+    [entries, today, food.dailyBudget, config?.startDate, noSpend],
   );
   const todaysEntries = useMemo(
     () => entries.filter((e) => e.spent_on === today),
@@ -166,6 +182,11 @@ export default function TodayPage() {
       const saved = await addEntry(row);
       setEntries((prev) => (prev.some((e) => e.id === saved.id) ? prev : [saved, ...prev]));
     }
+  }
+
+  async function handleNoSpend(day: string) {
+    await markNoSpend(day);
+    setReloadKey((k) => k + 1);
   }
 
   async function handleSettle() {
@@ -202,6 +223,17 @@ export default function TodayPage() {
 
         {loading ? (
           <p className="empty py-16 text-center">reading the ledger…</p>
+        ) : !envelope.started ? (
+          <Card title="Not started yet">
+            <p className="text-[13.5px]">
+              Tracking begins on{' '}
+              <span className="num">{config?.startDate ?? DEFAULT_CONFIG.startDate}</span>, the
+              day you move in.
+            </p>
+            <Aside tilt={-1.5} className="mt-2">
+              nothing is counted before then — change the date in Settings
+            </Aside>
+          </Card>
         ) : (
           <>
             <Hero>
@@ -223,10 +255,17 @@ export default function TodayPage() {
             />
 
             <div className="mt-4">
-              <MonthProgress s={stats} today={today} />
+              <MonthProgress envelope={envelope} today={today} />
             </div>
 
-            <Card title="Today" amount={php2(stats.spentToday)}>
+            <Unaccounted
+              days={envelope.unaccounted}
+              today={today}
+              potLabel={config?.pot.label ?? 'For eat out'}
+              onConfirm={handleNoSpend}
+            />
+
+            <Card title="Today" amount={php2(envelope.spentToday)}>
               <EntryList
                 entries={todaysEntries}
                 categories={food.categories}

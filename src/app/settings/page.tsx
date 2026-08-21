@@ -140,6 +140,57 @@ export default function SettingsPage() {
             </Aside>
           </Card>
 
+          <Card title="When this starts">
+            <div className="row">
+              <span className="row-label">
+                Move-in day
+                <span className="row-meta block">
+                  nothing is tracked before this, and its month is pro-rated to it
+                </span>
+              </span>
+              <input
+                type="date"
+                aria-label="The day tracking starts"
+                className="field text-[13px]"
+                style={{ width: '8.5rem' }}
+                value={config.startDate}
+                onChange={(e) =>
+                  void persist(
+                    { ...config, startDate: e.target.value },
+                    `Tracking starts ${e.target.value}`,
+                  )
+                }
+              />
+            </div>
+            <div className="row">
+              <span className="row-label">
+                Month 0 of the plan
+                <span className="row-meta block">
+                  every line item&rsquo;s start month counts from here
+                </span>
+              </span>
+              <input
+                type="month"
+                aria-label="First month of the plan"
+                className="field text-[13px]"
+                style={{ width: '8.5rem' }}
+                value={config.startMonth}
+                onChange={(e) =>
+                  void persist(
+                    { ...config, startMonth: e.target.value },
+                    `Plan now starts ${e.target.value}`,
+                  )
+                }
+              />
+            </div>
+            {config.startDate.slice(0, 7) !== config.startMonth && (
+              <Aside tilt={-1.5} tint="gold" className="mt-2">
+                move-in is in {config.startDate.slice(0, 7)} but the plan starts{' '}
+                {config.startMonth} — bills will be due in the wrong months
+              </Aside>
+            )}
+          </Card>
+
           <Card title="The goal">
             <div className="row">
               <span className="row-label">

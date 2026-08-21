@@ -1,4 +1,4 @@
-import { daysInMonth, monthIndexOf } from './date';
+import { daysInMonth, monthIndexOf, parseISO } from './date';
 import { phaseOf } from './engine';
 import type { Config, LineItem } from './config';
 import type { BillPayment } from './bills';
@@ -43,6 +43,8 @@ export type MonthClose = {
   complete: boolean;
 
   foodBudget: number;
+  /** Days of the month the budget covers; fewer than the month has in month one. */
+  daysCovered: number;
   foodSpent: number;
   /** Positive when food came in under its allowance. */
   foodSaved: number;
@@ -73,8 +75,14 @@ export function closeMonth(
   payments: BillPayment[],
   today: string,
 ): MonthClose {
+  // The month tracking starts in only counts from the move-in day, so its food
+  // budget is pro-rated. Without this, September would be measured against a
+  // full month and report a surplus for a fortnight nobody was living here.
   const days = daysInMonth(`${month}-01`);
-  const foodBudget = config.food.dailyBudget * days;
+  const startsThisMonth = config.startDate.slice(0, 7) === month;
+  const firstDay = startsThisMonth ? parseISO(config.startDate).d : 1;
+  const daysCovered = month < config.startDate.slice(0, 7) ? 0 : days - firstDay + 1;
+  const foodBudget = config.food.dailyBudget * daysCovered;
   const foodSpent = entries
     .filter((e) => monthOf(e.spent_on) === month)
     .reduce((s, e) => s + e.amount, 0);
@@ -101,6 +109,7 @@ export function closeMonth(
     month,
     complete: month < monthOf(today),
     foodBudget,
+    daysCovered,
     foodSpent,
     foodSaved: foodBudget - foodSpent,
     bills,

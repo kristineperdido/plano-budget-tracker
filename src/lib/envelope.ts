@@ -35,6 +35,12 @@ export type DayState = {
 
 export type Envelope = {
   month: string;
+  /** False before the start date, when there is nothing to track yet. */
+  started: boolean;
+  /** Days of this month the budget actually covers — pro-rated in month one. */
+  daysCovered: number;
+  /** Finished days nobody has accounted for. Their money stays in the pool. */
+  unaccounted: string[];
   monthlyBudget: number;
   /** Every day from the 1st through today. */
   days: DayState[];
@@ -68,11 +74,45 @@ export function computeEnvelope(
   entries: FoodEntry[],
   today: string,
   dailyBudget: number,
+  options: {
+    /** First day tracking counts from, as YYYY-MM-DD. */
+    startDate: string;
+    /** Days explicitly marked as nothing-spent. */
+    noSpendDays?: Iterable<string>;
+  },
 ): Envelope {
   const dim = daysInMonth(today);
   const dayOfMonth = parseISO(today).d;
   const month = today.slice(0, 7);
-  const monthlyBudget = dailyBudget * dim;
+  const confirmed = new Set(options.noSpendDays ?? []);
+
+  // The month only starts being tracked on the start date, so a mid-month
+  // move-in gets a pro-rated pool rather than a full month's worth.
+  const startsThisMonth = options.startDate.slice(0, 7) === month;
+  const firstDay = startsThisMonth ? parseISO(options.startDate).d : 1;
+  const daysCovered = dim - firstDay + 1;
+  const monthlyBudget = dailyBudget * daysCovered;
+
+  const notYet = today < options.startDate;
+  if (notYet) {
+    return {
+      month,
+      started: false,
+      daysCovered,
+      unaccounted: [],
+      monthlyBudget,
+      days: [],
+      dailyLimit: 0,
+      spentToday: 0,
+      leftToday: 0,
+      pool: monthlyBudget,
+      pot: 0,
+      leftThisMonth: monthlyBudget,
+      spentMonth: 0,
+      daysLeft: daysCovered,
+      daysInMonth: dim,
+    };
+  }
 
   // Bucket the month's entries by day, split by which envelope they draw on.
   const start = monthStart(today);
@@ -90,8 +130,9 @@ export function computeEnvelope(
   let pool = monthlyBudget;
   let pot = 0;
   const days: DayState[] = [];
+  const unaccounted: string[] = [];
 
-  for (let d = 1; d <= dayOfMonth; d++) {
+  for (let d = firstDay; d <= dayOfMonth; d++) {
     const day = `${month}-${String(d).padStart(2, '0')}`;
     const daysLeft = dim - d + 1;
     // An overspent month can drive the pool negative; a negative limit would be
@@ -105,12 +146,20 @@ export function computeEnvelope(
     pot -= drawnFromPot;
     pool -= spent + (potSpent - drawnFromPot);
 
-    // Only a finished day sweeps. Today is still being lived.
+    // Only a finished day sweeps, and only one that has been accounted for.
+    // A day nobody touched keeps its money in the pool, where it lifts the
+    // remaining daily limit a little — rather than inventing pot money, which
+    // would turn straight into savings.
     let toPot = 0;
     if (d < dayOfMonth) {
-      toPot = Math.max(0, limit - spent);
-      pool -= toPot;
-      pot += toPot;
+      const accounted = byDay.has(day) || confirmed.has(day);
+      if (accounted) {
+        toPot = Math.max(0, limit - spent);
+        pool -= toPot;
+        pot += toPot;
+      } else {
+        unaccounted.push(day);
+      }
     }
 
     days.push({ day, limit, spent, potSpent, toPot, poolAfter: pool, potAfter: pot });
@@ -120,6 +169,9 @@ export function computeEnvelope(
 
   return {
     month,
+    started: true,
+    daysCovered,
+    unaccounted,
     monthlyBudget,
     days,
     dailyLimit: todayState?.limit ?? 0,
