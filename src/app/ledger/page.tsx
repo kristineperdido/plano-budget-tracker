@@ -195,7 +195,7 @@ export default function LedgerPage() {
                         <span className="row-label min-w-0">
                         <input
                           aria-label={`Name of ${item.label}`}
-                          className="w-full border-b border-transparent bg-transparent text-[13.5px] outline-none focus:border-[var(--ink)]"
+                          className="name-field"
                           value={item.label}
                           onChange={(e) =>
                             setConfig({
@@ -403,7 +403,7 @@ export default function LedgerPage() {
                     <span className="row-label min-w-0">
                       <input
                         aria-label={`Name of ${m.label}`}
-                        className="w-full border-b border-transparent bg-transparent text-[13.5px] outline-none focus:border-[var(--ink)]"
+                        className="name-field"
                         value={m.label}
                         onChange={(e) =>
                           setConfig({
