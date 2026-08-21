@@ -381,24 +381,30 @@ export default function SavingsPage() {
                 Take out
               </button>
             </div>
-            <div className="mt-2.5 flex items-baseline gap-2">
+            <div className="mt-2.5 flex items-center gap-2">
               <span className="num text-[20px]">₱</span>
+              {/* min-w-0 matters: a flex item's minimum defaults to its
+                  intrinsic size, and an input's intrinsic size is about twenty
+                  characters — so flex-1 let this grow but never shrink, and it
+                  pushed the button off the card. */}
               <input
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
                 inputMode="decimal"
                 placeholder="0"
                 aria-label="Amount to move"
-                className="field flex-1 text-[20px]"
+                className="field min-w-0 flex-1 text-[20px]"
                 style={{ textAlign: 'left' }}
               />
               <button
                 type="button"
-                className="chip"
+                className="tap-target shrink-0"
                 disabled={busy === 'move' || !amount.trim()}
                 onClick={() => void move()}
               >
-                {busy === 'move' ? 'Saving…' : 'Record'}
+                <span className="chip chip--sm whitespace-nowrap">
+                  {busy === 'move' ? 'Saving…' : 'Record'}
+                </span>
               </button>
             </div>
           </Card>
