@@ -626,6 +626,29 @@ button {
   pointer-events: none;
 }
 
+/* ------------------------------------------------------------
+   RUNWAY — one segment per month, coloured by the kind of money
+   that pays for it. Green is money in hand, gold is money that
+   might not arrive, brick is the reserve that was meant to stay
+   untouched, and stripes mean nothing covers it at all.
+   ------------------------------------------------------------ */
+.runway { display: flex; gap: 2px; height: 15px; }
+.runway-seg { flex: 1; border: 1px solid var(--rule); }
+.runway-seg--income { background: var(--green); }
+.runway-seg--committed { background: var(--green); opacity: 0.55; }
+.runway-seg--uncertain { background: var(--gold); }
+.runway-seg--backup { background: var(--brick); }
+.runway-seg--short {
+  background: repeating-linear-gradient(
+    -45deg,
+    var(--brick) 0 3px,
+    var(--track) 3px 6px
+  );
+}
+.runway-key { display: flex; flex-wrap: wrap; gap: 4px 12px; }
+.runway-key-item { display: inline-flex; align-items: center; gap: 5px; }
+.runway-swatch { width: 9px; height: 9px; flex: none; border: 1px solid var(--rule); }
+
 /* Sign-in inverts: a rolled shutter over the dark ground. */
 .shutter {
   background-image: repeating-linear-gradient(

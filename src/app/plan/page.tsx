@@ -2,14 +2,15 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { Row, Signed } from '@/components/Money';
-import { Screen, Card, Aside } from '@/components/Screen';
+import { Screen, Card, Hero, Aside } from '@/components/Screen';
 import { PayerMark, PayerTag } from '@/components/Payer';
 import { useConfig } from '@/lib/useConfig';
 import { computePlan, foodForecast, totalMonths } from '@/lib/engine';
 import { phaseSpans, spanLabel } from '@/lib/phase';
 import { computeCashflow } from '@/lib/cashflow';
 import { CashflowPanel } from '@/components/Cashflow';
-import { addDays, todayISO, monthIndexOf } from '@/lib/date';
+import { Runway } from '@/components/Runway';
+import { addDays, monthIndexOf, monthOfIndex, todayISO } from '@/lib/date';
 import { fetchEntries } from '@/lib/entries';
 import { php } from '@/lib/model';
 import type { FoodEntry } from '@/lib/types';
@@ -58,26 +59,71 @@ export default function PlanPage() {
     () => (config ? phaseSpans(config, currentMonth) : []),
     [config, currentMonth],
   );
+  const months = config ? totalMonths(config.phases) : 0;
   const currentSpan = spans.find((s) => currentMonth >= s.from && currentMonth <= s.to) ?? null;
-  const active =
-    spans.find((s) => s.phase.id === viewPhase) ?? currentSpan ?? spans[0] ?? null;
+  /** 'all' reads the whole timeline; anything else is a phase id. */
+  const whole = viewPhase === 'all';
+  const active = whole
+    ? null
+    : (spans.find((s) => s.phase.id === viewPhase) ?? currentSpan ?? spans[0] ?? null);
 
-  // Everything below reads off the selected phase, not the whole timeline.
-  const scoped = useMemo(
-    () =>
-      config && active
-        ? computePlan(config, {
-            includeUncertain,
-            includePending,
-            window: { from: active.from, to: active.to },
-          })
-        : null,
-    [config, active, includeUncertain, includePending],
-  );
+  // One scope for the whole screen. Every figure below the selector obeys it —
+  // the score panel used to show the whole plan while the switch directly above
+  // it governed a card much further down.
+  const scoped = useMemo(() => {
+    if (!config) return null;
+    if (whole || !active) return computePlan(config, { includeUncertain, includePending });
+    return computePlan(config, {
+      includeUncertain,
+      includePending,
+      window: { from: active.from, to: active.to },
+    });
+  }, [config, whole, active, includeUncertain, includePending]);
 
-  /** Per-month or per-phase, depending on the switch. */
-  const scale = (v: number) =>
-    per === 'month' && active && active.phase.months > 0 ? v / active.phase.months : v;
+  const scopeMonths = whole || !active ? months : active.phase.months;
+
+  /**
+   * Per-month or per-phase, depending on the switch. Only ever applied to
+   * recurring costs: dividing a one-off by the phase length describes a month
+   * that never happens — it put ₱37,083 of move-in costs into tin's "monthly"
+   * figure and inflated it to ₱24,994.
+   */
+  const scale = (v: number) => (per === 'month' && scopeMonths > 0 ? v / scopeMonths : v);
+
+  /** Recurring costs (including food) and one-off costs, kept apart. */
+  const split = useMemo(() => {
+    if (!scoped) return null;
+    const zero = { her: 0, him: 0 };
+    const sum = (cadence: 'monthly' | 'onetime') =>
+      scoped.items
+        .filter((b) => b.item.cadence === cadence && b.occurrences > 0)
+        .reduce((a, b) => ({ her: a.her + b.split.her, him: a.him + b.split.him }), zero);
+
+    const monthly = sum('monthly');
+    return {
+      recurring: {
+        her: monthly.her + scoped.food.split.her,
+        him: monthly.him + scoped.food.split.him,
+      },
+      oneOff: sum('onetime'),
+      oneOffItems: scoped.items.filter((b) => b.item.cadence === 'onetime' && b.occurrences > 0),
+    };
+  }, [scoped]);
+
+  /**
+   * The net at the selected scope. Per month it counts recurring costs only —
+   * the one-offs are shown separately, because averaging the deposit across the
+   * phase put tin's "monthly" net at −24,994 while her actual recurring costs
+   * are 6,453.
+   */
+  const net = useMemo(() => {
+    if (!scoped || !split) return null;
+    if (per === 'phase') return { her: scoped.net.her, him: scoped.net.him };
+    return {
+      her: scoped.income.her + scoped.moneyIn.her - split.recurring.her,
+      him: scoped.income.him + scoped.moneyIn.him - split.recurring.him,
+    };
+  }, [scoped, split, per]);
 
   // Actual vs forecast: what the last 30 days of logging says about the
   // forecast the whole plan rests on.
@@ -96,7 +142,6 @@ export default function PlanPage() {
     };
   }, [config, entries]);
 
-  const months = config ? totalMonths(config.phases) : 0;
   const flow = useMemo(() => (config ? computeCashflow(config) : null), [config]);
 
   return (
@@ -107,15 +152,30 @@ export default function PlanPage() {
         </p>
       )}
 
-      {!plan || !config || !scoped ? (
+      {!plan || !config || !scoped || !split || !flow || !net ? (
         <p className="empty py-16 text-center">working the numbers…</p>
       ) : (
         <>
+          {/* The runway leads and sits above the scope control, because it
+              describes the whole plan rather than the phase being read. */}
+          <Hero>
+            <Runway flow={flow} />
+          </Hero>
+
           {/* The phase you are reading, what it means, and when it runs. */}
           <Card title="Where you are">
             <div className="flex flex-wrap items-stretch gap-1.5">
+              <button
+                type="button"
+                className="chip"
+                data-on={whole}
+                aria-pressed={whole}
+                onClick={() => setViewPhase('all')}
+              >
+                All {months} months
+              </button>
               {spans.map((sp) => {
-                const on = sp.phase.id === active?.phase.id;
+                const on = !whole && sp.phase.id === active?.phase.id;
                 return (
                   <button
                     key={sp.phase.id}
@@ -132,7 +192,7 @@ export default function PlanPage() {
               })}
             </div>
 
-            {active && (
+            {active && !whole && (
               <>
                 <p className="num tint-muted mt-2.5 text-[12px]">
                   {spanLabel(active)} · {active.phase.months}{' '}
@@ -203,15 +263,25 @@ export default function PlanPage() {
             </button>
           </div>
 
-          {/* The score. */}
+          {/* The score, at whatever scope is selected above. It used to show the
+              whole plan while the switch directly above it governed a card much
+              further down. */}
           <div className="panel mt-4">
             <span className="tape" style={{ left: 26 }} aria-hidden />
+            <div className="leader mb-2">
+              <span className="sign-label tint-teal">
+                {whole ? `All ${months} months` : active?.phase.label}
+              </span>
+              <span className="leader-fill" aria-hidden />
+              <span className="row-meta">{per === 'month' ? 'per month' : 'total'}</span>
+            </div>
+
             <div className="flex gap-3">
               {(['her', 'him'] as const).map((who) => (
                 <div key={who} className="flex-1">
                   <PayerTag payer={who} fixed={false} />
                   <div className="mt-1.5">
-                    <Signed value={plan.net[who]} size="20px" />
+                    <Signed value={scale(net[who])} size="20px" />
                   </div>
                 </div>
               ))}
@@ -220,13 +290,28 @@ export default function PlanPage() {
             <div className="leader mt-4 border-t pt-3" style={{ borderColor: 'var(--rule)' }}>
               <span className="sign-label">Combined</span>
               <span className="leader-fill" aria-hidden />
-              <Signed value={plan.combined} size="27px" />
+              <Signed value={scale(net.her + net.him)} size="27px" />
             </div>
 
-            {plan.backup.him + plan.backup.her > 0 && (
+            {/* Say the basis outright. The same two people can be ahead every
+                month on recurring costs and still far behind once the move-in
+                costs land, and both of those are true at once. */}
+            {per === 'month' && split.oneOff.her + split.oneOff.him > 0 && (
+              <p className="row-meta mt-2">
+                recurring costs only — the {php(split.oneOff.her + split.oneOff.him)} paid once
+                is listed below
+              </p>
+            )}
+            {whole && plan.backup.him + plan.backup.her > 0 && (
               <Aside tilt={-1.5} className="mt-2">
                 + {php(plan.backup.him + plan.backup.her)} savings, untouched
               </Aside>
+            )}
+            {!whole && (
+              <p className="row-meta mt-2">
+                savings and repayments belong to the plan as a whole, so they are not counted
+                inside a single phase
+              </p>
             )}
           </div>
 
@@ -278,28 +363,46 @@ export default function PlanPage() {
 
           <Card
             title="Where it goes"
-            amount={per === 'month' ? 'per month' : `${active?.phase.months ?? 0} months`}
+            amount={per === 'month' ? 'per month' : `${scopeMonths} months`}
           >
             <Row
               mark={<PayerMark shape="solid" />}
               label="Tin's costs"
-              amount={php(scale(scoped.costs.her))}
+              amount={php(scale(split.recurring.her))}
             />
             <Row
               mark={<PayerMark shape="hollow" />}
               label="Jhay's costs"
-              amount={php(scale(scoped.costs.him))}
-            />
-            <Row
-              mark={<PayerMark shape="both" />}
-              label="Food"
-              sub={`${php(config.food.dailyBudget)}/day for the days you're there`}
-              amount={php(scale(scoped.food.total))}
+              amount={php(scale(split.recurring.him))}
             />
             <Row label="Tin's income" amount={php(scale(scoped.income.her))} />
             <Row label="Jhay's income" amount={php(scale(scoped.income.him))} />
-
+            <p className="row-meta mt-1">
+              recurring only — food is in here at {php(config.food.dailyBudget)}/day
+            </p>
           </Card>
+
+          {/* One-off costs are never averaged. Dividing the deposit by the
+              phase length described a month that never happens. */}
+          {split.oneOffItems.length > 0 && (
+            <Card
+              title="Paid once"
+              amount={php(split.oneOff.her + split.oneOff.him)}
+            >
+              <p className="row-meta -mt-1 mb-2">
+                lands in the month it falls, not averaged across the {scopeMonths} months
+              </p>
+              {split.oneOffItems.map((b) => (
+                <Row
+                  key={b.item.id}
+                  mark={<PayerTag payer={b.item.payer} />}
+                  label={b.item.label}
+                  sub={monthOfIndex(config.startMonth, b.item.startMonth)}
+                  amount={php(b.split.her + b.split.him)}
+                />
+              ))}
+            </Card>
+          )}
 
           {/* Arrived from the retired Food tab: the number it produced belongs
               where it is spent, and its inputs live in Settings. */}
