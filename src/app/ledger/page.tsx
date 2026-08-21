@@ -6,6 +6,8 @@ import { Screen, Card, Aside } from '@/components/Screen';
 import { PayerTag } from '@/components/Payer';
 import {
   PAYER_DESCRIPTION,
+  PAYER_LABEL,
+  type MoneyIn,
   type Cadence,
   type LineItem,
   type Payer,
@@ -15,7 +17,7 @@ import { useConfig } from '@/lib/useConfig';
 import { foodForecast, householdCost } from '@/lib/engine';
 import { fetchBills, recordBill, type BillPayment } from '@/lib/bills';
 import { monthOf } from '@/lib/close';
-import { todayISO } from '@/lib/date';
+import { monthOfIndex, todayISO } from '@/lib/date';
 import { php } from '@/lib/model';
 
 const PAYERS: Payer[] = ['her', 'him', 'split', 'each'];
@@ -37,10 +39,13 @@ export default function LedgerPage() {
   const [bills, setBills] = useState<BillPayment[]>([]);
   const [thisMonth] = useState(() => monthOf(todayISO()));
 
-  // What the monthly bills have actually come to this month.
+  // Actuals across the whole plan, not just this month: a one-time move-in cost
+  // is due in its own month, which is usually in the past by the time you have
+  // the receipt.
   useEffect(() => {
+    if (!config) return;
     let cancelled = false;
-    fetchBills(thisMonth).then(
+    fetchBills(config.startMonth).then(
       (b) => !cancelled && setBills(b),
       // Actuals are an overlay; the plan still has to render without them.
       () => !cancelled && setBills([]),
@@ -48,25 +53,39 @@ export default function LedgerPage() {
     return () => {
       cancelled = true;
     };
-  }, [thisMonth]);
+  }, [config]);
+
+  /**
+   * The month a bill belongs to. A recurring cost is asked about for the month
+   * you are in; a one-time cost lands once, in whichever month the plan
+   * schedules it.
+   */
+  const billMonth = useCallback(
+    (item: LineItem) =>
+      item.cadence === 'onetime' && config
+        ? monthOfIndex(config.startMonth, item.startMonth)
+        : thisMonth,
+    [config, thisMonth],
+  );
 
   const actualFor = useCallback(
-    (itemId: string) =>
-      bills.find((b) => b.item_id === itemId && b.for_month === thisMonth)?.amount ?? null,
-    [bills, thisMonth],
+    (item: LineItem) =>
+      bills.find((b) => b.item_id === item.id && b.for_month === billMonth(item))?.amount ?? null,
+    [bills, billMonth],
   );
 
   const [savingBill, setSavingBill] = useState(false);
   const saveActual = useCallback(
     async (item: LineItem, amount: number) => {
+      const month = billMonth(item);
       setSavingBill(true);
       try {
-        const saved = await recordBill({ item_id: item.id, for_month: thisMonth, amount });
+        const saved = await recordBill({ item_id: item.id, for_month: month, amount });
         setBills((prev) => [
-          ...prev.filter((b) => !(b.item_id === item.id && b.for_month === thisMonth)),
+          ...prev.filter((b) => !(b.item_id === item.id && b.for_month === month)),
           saved,
         ]);
-        await logChange(`${item.label} came to ${php(amount)} in ${thisMonth}`);
+        await logChange(`${item.label} came to ${php(amount)} in ${month}`);
         setError(null);
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Could not record it.');
@@ -74,7 +93,7 @@ export default function LedgerPage() {
         setSavingBill(false);
       }
     },
-    [thisMonth, setError],
+    [billMonth, setError],
   );
 
   const updateItem = useCallback(
@@ -150,6 +169,11 @@ export default function LedgerPage() {
             const subtotal = rows.reduce((sum, i) => sum + householdCost(i), 0);
             return (
               <Card key={s.cadence} title={s.title} amount={php(subtotal)}>
+                <p className="row-meta -mt-1 mb-2">
+                  {s.cadence === 'onetime'
+                    ? 'paid once, at move-in · counted as costs on Plan'
+                    : 'every month for as long as the plan runs · counted as costs on Plan'}
+                </p>
                 {rows.length === 0 && <p className="empty py-3">nothing here yet</p>}
 
                 {rows.map((item) => {
@@ -203,17 +227,17 @@ export default function LedgerPage() {
 
                       {/* What it actually came to. Only monthly bills vary
                           enough to be worth chasing month by month. */}
-                      {s.cadence === 'monthly' && (
+                      {(
                         <div className="-mt-1 mb-2 flex items-center gap-2 pl-[61px]">
                           <span className="row-meta flex-1">
                             {(() => {
-                              const actual = actualFor(item.id);
-                              if (actual === null) return `${thisMonth} — not recorded`;
+                              const actual = actualFor(item);
+                              if (actual === null) return `${billMonth(item)} — not recorded`;
                               const diff = item.amount - actual;
-                              if (Math.abs(diff) < 0.5) return `${thisMonth} — exactly as planned`;
+                              if (Math.abs(diff) < 0.5) return `${billMonth(item)} — exactly as planned`;
                               return (
                                 <>
-                                  {thisMonth} —{' '}
+                                  {billMonth(item)} —{' '}
                                   <span className={diff > 0 ? 'tint-green' : 'tint-brick'}>
                                     {php(Math.abs(diff))} {diff > 0 ? 'under' : 'over'}
                                   </span>
@@ -223,8 +247,8 @@ export default function LedgerPage() {
                           </span>
                           <span className="tint-muted text-[11px]">came to</span>
                           <AmountField
-                            label={`What ${item.label} came to in ${thisMonth}`}
-                            value={actualFor(item.id) ?? item.amount}
+                            label={`What ${item.label} came to in ${billMonth(item)}`}
+                            value={actualFor(item) ?? item.amount}
                             onCommit={(v) => void saveActual(item, v)}
                           />
                         </div>
@@ -288,6 +312,29 @@ export default function LedgerPage() {
                           >
                             Remove
                           </button>
+
+                          <input
+                            aria-label={`Note for ${item.label}`}
+                            placeholder="a note about this cost…"
+                            className="field-text mt-1"
+                            style={{ textAlign: 'left' }}
+                            value={item.note ?? ''}
+                            onChange={(e) =>
+                              setConfig({
+                                ...config,
+                                items: config.items.map((i) =>
+                                  i.id === item.id ? { ...i, note: e.target.value } : i,
+                                ),
+                              })
+                            }
+                            onBlur={(e) =>
+                              updateItem(
+                                item.id,
+                                { note: e.target.value.trim() || undefined },
+                                `Note on ${item.label} updated`,
+                              )
+                            }
+                          />
                         </div>
                       )}
                     </div>
@@ -304,6 +351,9 @@ export default function LedgerPage() {
           {/* Food is computed from the day types, so it is shown but never edited here. */}
           {forecast && (
             <Card title="Food" amount={php(forecast.perMonth)}>
+              <p className="row-meta -mt-1 mb-2">
+                worked out from your day types · set on the Food screen
+              </p>
               <div className="row">
                 <PayerTag payer="split" />
                 <span className="row-label">
@@ -320,37 +370,173 @@ export default function LedgerPage() {
             amount={php(config.moneyIn.reduce((s, m) => s + m.amount, 0))}
             className="mb-8"
           >
-            {config.moneyIn.map((m) => (
-              <div key={m.id}>
-                <div className="row">
-                  <PayerTag payer={m.owner} />
-                  <span className="row-label">
-                    {m.label}
-                    {m.note && <span className="row-meta block">{m.note}</span>}
-                  </span>
-                  {m.uncertain && <span className="stamp stamp--gold">Uncertain</span>}
-                  {m.backup && <span className="stamp stamp--muted">Backup</span>}
-                  <AmountField
-                    label={`Amount for ${m.label}`}
-                    value={m.amount}
-                    onCommit={(v) =>
-                      void persist(
-                        {
+            <p className="row-meta -mt-1 mb-2">
+              what you bring in · Plan draws on this, in order of how sure it is
+            </p>
+            {config.moneyIn.map((m) => {
+              const open = editing === m.id;
+              const patch = (change: Partial<MoneyIn>, note: string) =>
+                void persist(
+                  {
+                    ...config,
+                    moneyIn: config.moneyIn.map((x) =>
+                      x.id === m.id ? { ...x, ...change } : x,
+                    ),
+                  },
+                  note,
+                );
+
+              return (
+                <div key={m.id}>
+                  <div className="row">
+                    <button
+                      type="button"
+                      onClick={() => setEditing(open ? null : m.id)}
+                      aria-expanded={open}
+                      aria-label={`Edit ${m.label}`}
+                      className="flex-none"
+                    >
+                      <PayerTag payer={m.owner} />
+                    </button>
+
+                    <input
+                      aria-label={`Name of ${m.label}`}
+                      className="row-label min-w-0 border-b border-transparent bg-transparent outline-none focus:border-[var(--ink)]"
+                      value={m.label}
+                      onChange={(e) =>
+                        setConfig({
                           ...config,
                           moneyIn: config.moneyIn.map((x) =>
-                            x.id === m.id ? { ...x, amount: v } : x,
+                            x.id === m.id ? { ...x, label: e.target.value } : x,
                           ),
-                        },
-                        `${m.label} set to ${php(v)}`,
-                      )
-                    }
-                  />
+                        })
+                      }
+                      onBlur={(e) => patch({ label: e.target.value }, `Renamed to ${e.target.value}`)}
+                    />
+
+                    {m.uncertain && <span className="stamp stamp--gold">Uncertain</span>}
+                    {m.backup && <span className="stamp stamp--muted">Backup</span>}
+
+                    <AmountField
+                      label={`Amount for ${m.label}`}
+                      value={m.amount}
+                      onCommit={(v) => patch({ amount: v }, `${m.label} set to ${php(v)}`)}
+                    />
+                  </div>
+
+                  {m.note && !open && <p className="row-meta -mt-1 mb-2 pl-[61px]">{m.note}</p>}
+
+                  {open && (
+                    <div className="mb-3 pl-[61px]">
+                      <input
+                        aria-label={`Note for ${m.label}`}
+                        placeholder="a note about this money…"
+                        className="field-text mb-2"
+                        style={{ textAlign: 'left' }}
+                        value={m.note ?? ''}
+                        onChange={(e) =>
+                          setConfig({
+                            ...config,
+                            moneyIn: config.moneyIn.map((x) =>
+                              x.id === m.id ? { ...x, note: e.target.value } : x,
+                            ),
+                          })
+                        }
+                        onBlur={(e) =>
+                          patch(
+                            { note: e.target.value.trim() || undefined },
+                            `Note on ${m.label} updated`,
+                          )
+                        }
+                      />
+
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {(['her', 'him'] as const).map((who) => (
+                          <button
+                            key={who}
+                            type="button"
+                            className="chip chip--marker"
+                            data-on={m.owner === who}
+                            aria-pressed={m.owner === who}
+                            onClick={() =>
+                              patch({ owner: who }, `${m.label} belongs to ${PAYER_LABEL[who]}`)
+                            }
+                          >
+                            {PAYER_LABEL[who]}
+                          </button>
+                        ))}
+
+                        <button
+                          type="button"
+                          className="chip"
+                          data-on={Boolean(m.uncertain)}
+                          aria-pressed={Boolean(m.uncertain)}
+                          onClick={() =>
+                            patch(
+                              { uncertain: m.uncertain ? undefined : true },
+                              `${m.label} is ${m.uncertain ? 'now counted on' : 'no longer certain'}`,
+                            )
+                          }
+                        >
+                          Uncertain
+                        </button>
+
+                        <button
+                          type="button"
+                          className="chip"
+                          data-on={Boolean(m.backup)}
+                          aria-pressed={Boolean(m.backup)}
+                          onClick={() =>
+                            patch(
+                              { backup: m.backup ? undefined : true },
+                              `${m.label} is ${m.backup ? 'back in the plan' : 'held back'}`,
+                            )
+                          }
+                        >
+                          Held back
+                        </button>
+
+                        <button
+                          type="button"
+                          className="chip tint-brick"
+                          onClick={() =>
+                            void persist(
+                              { ...config, moneyIn: config.moneyIn.filter((x) => x.id !== m.id) },
+                              `Removed ${m.label}`,
+                            )
+                          }
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
-              </div>
-            ))}
+              );
+            })}
+
+            <button
+              type="button"
+              className="btn btn--dashed mt-2"
+              onClick={() => {
+                const item: MoneyIn = {
+                  id: `in-${Date.now()}`,
+                  label: 'Money from somewhere',
+                  amount: 0,
+                  owner: 'her',
+                };
+                setEditing(item.id);
+                void persist(
+                  { ...config, moneyIn: [...config.moneyIn, item] },
+                  'Added money in',
+                );
+              }}
+            >
+              + one more
+            </button>
 
             <Aside tilt={-1.5} className="mt-3">
-              tap a name to change who pays
+              tap a name to change who it belongs to, or mark it uncertain
             </Aside>
           </Card>
         </>
