@@ -9,21 +9,35 @@ import { useConfig } from '@/lib/useConfig';
 import { computePlan, foodForecast } from '@/lib/engine';
 import { php } from '@/lib/model';
 
+/**
+ * The sliders bind to one phase at a time. They used to be wired to
+ * `phases[0]` outright — the length slider was even called "months without
+ * income" — so once a second phase existed there was no way to model it.
+ */
 type Knobs = {
+  /** Which phase the phase-specific sliders act on. */
+  phaseId: string;
+  months: number;
+  herIncome: number;
+  himIncome: number;
+  sideHustle: number;
+  /** These two apply to the whole plan, not to one phase. */
   foodPerDay: number;
   uncertainMoney: number;
-  sideHustle: number;
-  gapMonths: number;
 };
 
-/** Read the knob positions the stored config currently implies. */
-function knobsFrom(config: Config): Knobs {
+/** Read the knob positions the stored config currently implies, for one phase. */
+function knobsFrom(config: Config, phaseId?: string): Knobs {
+  const phase = config.phases.find((p) => p.id === phaseId) ?? config.phases[0];
   const uncertain = config.moneyIn.find((m) => m.uncertain);
   return {
+    phaseId: phase?.id ?? '',
+    months: phase?.months ?? 1,
+    herIncome: phase?.income.her ?? 0,
+    himIncome: phase?.income.him ?? 0,
+    sideHustle: phase?.income.herSideHustle ?? 0,
     foodPerDay: Math.round(foodForecast(config.food).foodPerDay),
     uncertainMoney: uncertain?.amount ?? 0,
-    sideHustle: config.phases[0]?.income.herSideHustle ?? 0,
-    gapMonths: config.phases[0]?.months ?? 1,
   };
 }
 
@@ -42,9 +56,13 @@ function applyKnobs(config: Config, k: Knobs): Config {
       dayTypes: config.food.dayTypes.map((t) => ({ ...t, amount: Math.round(t.amount * scale) })),
     },
     moneyIn: config.moneyIn.map((m) => (m.uncertain ? { ...m, amount: k.uncertainMoney } : m)),
-    phases: config.phases.map((p, i) =>
-      i === 0
-        ? { ...p, months: k.gapMonths, income: { ...p.income, herSideHustle: k.sideHustle } }
+    phases: config.phases.map((p) =>
+      p.id === k.phaseId
+        ? {
+            ...p,
+            months: k.months,
+            income: { her: k.herIncome, him: k.himIncome, herSideHustle: k.sideHustle },
+          }
         : p,
     ),
   };
@@ -92,12 +110,12 @@ export default function WhatIfPage() {
     const next = applyKnobs(config, knobs);
     await persist(
       next,
-      `Applied a what-if: food ${php(knobs.foodPerDay)}/day, side hustle ${php(
-        knobs.sideHustle,
-      )}/mo, ${knobs.gapMonths} months without income`,
+      `Applied a what-if to ${
+        config.phases.find((p) => p.id === knobs.phaseId)?.label ?? 'the plan'
+      }: ${knobs.months} months, food ${php(knobs.foodPerDay)}/day`,
     );
     setSeededFor(next);
-    setKnobs(knobsFrom(next));
+    setKnobs(knobsFrom(next, knobs.phaseId));
     setApplied(true);
   }, [config, knobs, persist]);
 
@@ -126,6 +144,67 @@ export default function WhatIfPage() {
           </Card>
 
           <Card>
+          {/* Pick the stretch of the plan to play with. */}
+          <div className="mb-4 flex flex-wrap gap-1.5">
+            {config.phases.map((p) => {
+              const on = p.id === knobs.phaseId;
+              return (
+                <button
+                  key={p.id}
+                  type="button"
+                  className="chip"
+                  data-on={on}
+                  aria-pressed={on}
+                  onClick={() => setKnobs(knobsFrom(config, p.id))}
+                >
+                  {p.label}
+                </button>
+              );
+            })}
+          </div>
+
+          <Slider
+            label="How long it lasts"
+            value={knobs.months}
+            min={1}
+            max={24}
+            step={1}
+            format={(v) => `${v} ${v === 1 ? 'month' : 'months'}`}
+            onChange={(v) => setKnobs({ ...knobs, months: v })}
+          />
+          <Slider
+            label="Tin earns"
+            value={knobs.herIncome}
+            min={0}
+            max={80000}
+            step={1000}
+            format={(v) => `${php(v)}/mo`}
+            onChange={(v) => setKnobs({ ...knobs, herIncome: v })}
+          />
+          <Slider
+            label="Jhay earns"
+            value={knobs.himIncome}
+            min={0}
+            max={80000}
+            step={1000}
+            format={(v) => `${php(v)}/mo`}
+            onChange={(v) => setKnobs({ ...knobs, himIncome: v })}
+          />
+          <Slider
+            label="Side hustle"
+            value={knobs.sideHustle}
+            min={0}
+            max={20000}
+            step={500}
+            format={(v) => `${php(v)}/mo`}
+            onChange={(v) => setKnobs({ ...knobs, sideHustle: v })}
+          />
+
+          <div className="leader mt-5 mb-3">
+            <h3 className="sign-label tint-teal">Across the whole plan</h3>
+            <span className="leader-fill" aria-hidden />
+          </div>
+
           <Slider
             label="Food per day"
             value={knobs.foodPerDay}
@@ -143,24 +222,6 @@ export default function WhatIfPage() {
             step={1000}
             format={php}
             onChange={(v) => setKnobs({ ...knobs, uncertainMoney: v })}
-          />
-          <Slider
-            label="Side hustle per month"
-            value={knobs.sideHustle}
-            min={0}
-            max={20000}
-            step={500}
-            format={php}
-            onChange={(v) => setKnobs({ ...knobs, sideHustle: v })}
-          />
-          <Slider
-            label="Months without income"
-            value={knobs.gapMonths}
-            min={1}
-            max={12}
-            step={1}
-            format={(v) => `${v}`}
-            onChange={(v) => setKnobs({ ...knobs, gapMonths: v })}
           />
           </Card>
 

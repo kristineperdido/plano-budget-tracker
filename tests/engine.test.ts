@@ -77,6 +77,40 @@ const clone = (c: Config): Config => JSON.parse(JSON.stringify(c));
   assert.equal(after.orphaned[0].id, 'car');
 }
 
+// ---- 2c. A window narrows the calculation to one stretch of months ----
+{
+  const c = clone(DEFAULT_CONFIG);
+  c.phases = [
+    { id: 'a', label: 'A', months: 1, income: { her: 0, him: 27400, herSideHustle: 0 }, payers: {}, foodPayer: 'split' },
+    { id: 'b', label: 'B', months: 1, income: { her: 30000, him: 27400, herSideHustle: 0 }, payers: {}, foodPayer: 'split' },
+  ];
+
+  const whole = computePlan(c, { includeUncertain: true, includePending: false });
+  const first = computePlan(c, { includeUncertain: true, includePending: false, window: { from: 0, to: 0 } });
+  const second = computePlan(c, { includeUncertain: true, includePending: false, window: { from: 1, to: 1 } });
+
+  assert.equal(first.months, 1);
+  assert.equal(second.months, 1);
+
+  // Costs are additive across the slices.
+  assert.equal(
+    Math.round(first.costs.her + second.costs.her),
+    Math.round(whole.costs.her),
+    'the phases account for every peso of cost',
+  );
+  assert.equal(Math.round(first.income.him + second.income.him), Math.round(whole.income.him));
+
+  // Money-in belongs to the plan, not to a phase; crediting it to each would
+  // count the same 40,000 twice.
+  assert.equal(first.moneyIn.her, 0, 'a slice does not claim the savings');
+  assert.equal(second.moneyIn.her, 0);
+  assert.equal(whole.moneyIn.her, 40000 + 10000);
+
+  // The second phase is the one where she starts earning.
+  assert.equal(first.income.her, 0);
+  assert.equal(second.income.her, 30000);
+}
+
 // ---- 3. Payer semantics ----
 assert.deepEqual(applyPayer(500, 'each'), { her: 500, him: 500 }, "'each' is per-person, not halved");
 assert.deepEqual(applyPayer(3000, 'split'), { her: 1500, him: 1500 });

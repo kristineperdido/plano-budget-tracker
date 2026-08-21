@@ -100,11 +100,24 @@ function isActive(item: LineItem, month: number): boolean {
     : month >= item.startMonth;
 }
 
+/**
+ * Restrict a plan calculation to one stretch of months. Without this the only
+ * available answer is "across the whole timeline", which cannot be broken down
+ * per phase or expressed per month.
+ */
+export type Window = { from: number; to: number };
+
 export type Options = {
   /** Brother's repayment and anything else flagged uncertain. */
   includeUncertain: boolean;
   /** The pending tray: appliances, termination fee. */
   includePending: boolean;
+  /**
+   * Months to include, inclusive. Omitted means the whole plan. Money-in is
+   * only counted for a whole-plan calculation: savings arrive once, so
+   * attributing them to a slice would double-count them across phases.
+   */
+  window?: Window;
 };
 
 export type ItemBreakdown = {
@@ -137,7 +150,11 @@ export type PlanResult = {
 };
 
 export function computePlan(config: Config, options: Options): PlanResult {
-  const months = totalMonths(config.phases);
+  const all = totalMonths(config.phases);
+  const from = options.window?.from ?? 0;
+  const to = Math.min(options.window?.to ?? all - 1, all - 1);
+  const months = Math.max(0, to - from + 1);
+  const wholePlan = from === 0 && to === all - 1;
   const forecast = foodForecast(config.food);
 
   const items = config.items.filter((i) => (i.pending ? options.includePending : true));
@@ -147,7 +164,7 @@ export function computePlan(config: Config, options: Options): PlanResult {
     let total = 0;
     let split = ZERO;
 
-    for (let m = 0; m < months; m++) {
+    for (let m = from; m <= to; m++) {
       if (!isActive(item, m)) continue;
       const phase = phaseOf(config.phases, m);
       if (!phase) continue;
@@ -173,7 +190,7 @@ export function computePlan(config: Config, options: Options): PlanResult {
   let foodTotal = 0;
   let foodSplit = ZERO;
   let foodBudgetedPerMonth = 0;
-  for (let m = 0; m < months; m++) {
+  for (let m = from; m <= to; m++) {
     const phase = phaseOf(config.phases, m);
     if (!phase) continue;
     const cal = monthOfIndex(config.startMonth, m);
@@ -186,7 +203,7 @@ export function computePlan(config: Config, options: Options): PlanResult {
 
   // Income accrues per month at the rate of whichever phase that month is in.
   let income = ZERO;
-  for (let m = 0; m < months; m++) {
+  for (let m = from; m <= to; m++) {
     const phase = phaseOf(config.phases, m);
     if (!phase) continue;
     income = add(income, {
@@ -197,7 +214,9 @@ export function computePlan(config: Config, options: Options): PlanResult {
 
   let moneyIn = ZERO;
   let backup = ZERO;
-  for (const m of config.moneyIn) {
+  // Savings and repayments arrive once, so they belong to the plan as a whole.
+  // Counting them inside a phase would credit the same peso to every phase.
+  for (const m of wholePlan ? config.moneyIn : []) {
     if (m.uncertain && !options.includeUncertain) continue;
     const target = m.backup ? 'backup' : 'moneyIn';
     const entry: Split = m.owner === 'her' ? { her: m.amount, him: 0 } : { her: 0, him: m.amount };
@@ -212,7 +231,9 @@ export function computePlan(config: Config, options: Options): PlanResult {
 
   return {
     months,
-    orphaned: items.filter((i) => !breakdowns.find((b) => b.item.id === i.id)?.occurrences),
+    orphaned: wholePlan
+      ? items.filter((i) => !breakdowns.find((b) => b.item.id === i.id)?.occurrences)
+      : [],
     foodVariance: {
       budgeted: foodBudgetedPerMonth,
       forecast: forecast.perMonth,

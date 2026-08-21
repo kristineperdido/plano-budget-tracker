@@ -52,6 +52,8 @@ export type LineItem = {
 export type Phase = {
   id: string;
   label: string;
+  /** What this stretch of the plan actually means. "Between jobs" is a label; this says why. */
+  note?: string;
   months: number;
   /** Per month, for the duration of the phase. */
   income: { her: number; him: number; herSideHustle: number };
@@ -183,6 +185,7 @@ export const DEFAULT_CONFIG: Config = {
     {
       id: 'gap',
       label: 'Between jobs',
+      note: 'tin is not earning yet, so jhay carries the rent and the bills',
       months: 2,
       income: { her: 0, him: 27400, herSideHustle: 0 },
       payers: {},

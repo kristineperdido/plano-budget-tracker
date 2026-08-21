@@ -5,7 +5,8 @@ import { Row, Signed } from '@/components/Money';
 import { Screen, Card, Aside } from '@/components/Screen';
 import { PayerMark, PayerTag } from '@/components/Payer';
 import { useConfig } from '@/lib/useConfig';
-import { computePlan, foodForecast, totalMonths, phaseOf } from '@/lib/engine';
+import { computePlan, foodForecast, totalMonths } from '@/lib/engine';
+import { phaseSpans, spanLabel } from '@/lib/phase';
 import { computeCashflow } from '@/lib/cashflow';
 import { CashflowPanel } from '@/components/Cashflow';
 import { addDays, todayISO, monthIndexOf } from '@/lib/date';
@@ -14,7 +15,7 @@ import { php } from '@/lib/model';
 import type { FoodEntry } from '@/lib/types';
 
 export default function PlanPage() {
-  const { config, error: configError } = useConfig();
+  const { config, setConfig, persist, error: configError } = useConfig();
   const [entries, setEntries] = useState<FoodEntry[]>([]);
   const [error, setError] = useState<string | null>(null);
   // Off by default. Counting the brother's repayment as money in hand is what
@@ -22,6 +23,8 @@ export default function PlanPage() {
   const [includeUncertain, setIncludeUncertain] = useState(false);
   const [includePending, setIncludePending] = useState(false);
   const [viewPhase, setViewPhase] = useState<string | null>(null);
+  /** Read every figure per month, or across the whole stretch. */
+  const [per, setPer] = useState<'month' | 'phase'>('month');
 
   useEffect(() => {
     let cancelled = false;
@@ -51,8 +54,30 @@ export default function PlanPage() {
     () => (config ? monthIndexOf(config.startMonth, todayISO()) : 0),
     [config],
   );
-  const currentPhase = config ? phaseOf(config.phases, currentMonth) : null;
-  const activePhaseId = viewPhase ?? currentPhase?.id ?? config?.phases[0]?.id ?? null;
+  const spans = useMemo(
+    () => (config ? phaseSpans(config, currentMonth) : []),
+    [config, currentMonth],
+  );
+  const currentSpan = spans.find((s) => currentMonth >= s.from && currentMonth <= s.to) ?? null;
+  const active =
+    spans.find((s) => s.phase.id === viewPhase) ?? currentSpan ?? spans[0] ?? null;
+
+  // Everything below reads off the selected phase, not the whole timeline.
+  const scoped = useMemo(
+    () =>
+      config && active
+        ? computePlan(config, {
+            includeUncertain,
+            includePending,
+            window: { from: active.from, to: active.to },
+          })
+        : null,
+    [config, active, includeUncertain, includePending],
+  );
+
+  /** Per-month or per-phase, depending on the switch. */
+  const scale = (v: number) =>
+    per === 'month' && active && active.phase.months > 0 ? v / active.phase.months : v;
 
   // Actual vs forecast: what the last 30 days of logging says about the
   // forecast the whole plan rests on.
@@ -82,36 +107,101 @@ export default function PlanPage() {
         </p>
       )}
 
-      {!plan || !config ? (
+      {!plan || !config || !scoped ? (
         <p className="empty py-16 text-center">working the numbers…</p>
       ) : (
         <>
-          {/* Phases as a strip of chips — the timeline is a first-class list. */}
+          {/* The phase you are reading, what it means, and when it runs. */}
           <Card title="Where you are">
             <div className="flex flex-wrap items-stretch gap-1.5">
-              {config.phases.map((p) => {
-                const on = p.id === activePhaseId;
+              {spans.map((sp) => {
+                const on = sp.phase.id === active?.phase.id;
                 return (
                   <button
-                    key={p.id}
+                    key={sp.phase.id}
                     type="button"
                     className="chip"
                     data-on={on}
                     aria-pressed={on}
                     style={on ? { transform: 'rotate(-0.8deg)' } : undefined}
-                    onClick={() => setViewPhase(p.id)}
+                    onClick={() => setViewPhase(sp.phase.id)}
                   >
-                    {p.label}
+                    {sp.phase.label}
                   </button>
                 );
               })}
             </div>
-            <Aside tilt={-1.5} className="mt-2">
-              {currentPhase
-                ? `month ${currentMonth + 1} of ${months} — ${currentPhase.label.toLowerCase()}`
-                : `${months} months mapped, starting ${config.startMonth}`}
-            </Aside>
+
+            {active && (
+              <>
+                <p className="num tint-muted mt-2.5 text-[12px]">
+                  {spanLabel(active)} · {active.phase.months}{' '}
+                  {active.phase.months === 1 ? 'month' : 'months'}
+                  {active.elapsed !== null &&
+                    active === currentSpan &&
+                    ` · month ${active.elapsed} of ${active.phase.months}`}
+                </p>
+
+                {/* A label says what a phase is called; this says what it means. */}
+                <input
+                  aria-label={`What ${active.phase.label} means`}
+                  placeholder="what happens in this stretch…"
+                  className="field-text mt-2"
+                  style={{ textAlign: 'left' }}
+                  value={active.phase.note ?? ''}
+                  onChange={(e) =>
+                    setConfig({
+                      ...config,
+                      phases: config.phases.map((x) =>
+                        x.id === active.phase.id ? { ...x, note: e.target.value } : x,
+                      ),
+                    })
+                  }
+                  onBlur={(e) =>
+                    void persist(
+                      {
+                        ...config,
+                        phases: config.phases.map((x) =>
+                          x.id === active.phase.id
+                            ? { ...x, note: e.target.value.trim() || undefined }
+                            : x,
+                        ),
+                      },
+                      `Described the ${active.phase.label} phase`,
+                    )
+                  }
+                />
+
+                {active !== currentSpan && currentSpan && (
+                  <Aside tilt={-1.5} className="mt-2">
+                    you&rsquo;re actually in {currentSpan.phase.label.toLowerCase()} right now
+                  </Aside>
+                )}
+              </>
+            )}
           </Card>
+
+          {/* Read every figure per month, or across the whole stretch. */}
+          <div className="mt-4 flex gap-1.5">
+            <button
+              type="button"
+              className="chip flex-1"
+              data-on={per === 'month'}
+              aria-pressed={per === 'month'}
+              onClick={() => setPer('month')}
+            >
+              Per month
+            </button>
+            <button
+              type="button"
+              className="chip flex-1"
+              data-on={per === 'phase'}
+              aria-pressed={per === 'phase'}
+              onClick={() => setPer('phase')}
+            >
+              Whole phase
+            </button>
+          </div>
 
           {/* The score. */}
           <div className="panel mt-4">
@@ -186,30 +276,64 @@ export default function PlanPage() {
             </Card>
           )}
 
-          <Card title="Where it goes">
+          <Card
+            title="Where it goes"
+            amount={per === 'month' ? 'per month' : `${active?.phase.months ?? 0} months`}
+          >
             <Row
               mark={<PayerMark shape="solid" />}
               label="Tin's costs"
-              amount={php(plan.costs.her)}
+              amount={php(scale(scoped.costs.her))}
             />
             <Row
               mark={<PayerMark shape="hollow" />}
               label="Jhay's costs"
-              amount={php(plan.costs.him)}
+              amount={php(scale(scoped.costs.him))}
             />
             <Row
               mark={<PayerMark shape="both" />}
               label="Food"
               sub={`${php(config.food.dailyBudget)}/day for the days you're there`}
-              amount={php(plan.food.total)}
+              amount={php(scale(scoped.food.total))}
             />
-            <Row label="Tin's income + savings" amount={php(plan.income.her + plan.moneyIn.her)} />
-            <Row label="Jhay's income" amount={php(plan.income.him + plan.moneyIn.him)} />
+            <Row label="Tin's income" amount={php(scale(scoped.income.her))} />
+            <Row label="Jhay's income" amount={php(scale(scoped.income.him))} />
 
-            {plan.foodVariance.gap > 0 && (
-              <Aside tilt={-1.5} tint="gold" className="mt-2">
-                your day types imply {php(plan.foodVariance.forecast)}/mo against a{' '}
-                {php(plan.foodVariance.budgeted)} allowance — {php(plan.foodVariance.gap)} over
+          </Card>
+
+          {/* Arrived from the retired Food tab: the number it produced belongs
+              where it is spent, and its inputs live in Settings. */}
+          <Card title="What food is expected to cost">
+            <div className="row">
+              <span className="row-label">
+                Budgeted
+                <span className="row-meta block">
+                  {php(config.food.dailyBudget)}/day, what the plan charges
+                </span>
+              </span>
+              <span className="num text-[14px]">{php(plan.foodVariance.budgeted)}/mo</span>
+            </div>
+            <div className="row">
+              <span className="row-label">
+                Your day types imply
+                <span className="row-meta block">edit them in Settings</span>
+              </span>
+              <span
+                className={`num text-[14px] ${
+                  plan.foodVariance.gap > 0 ? 'tint-brick' : 'tint-green'
+                }`}
+              >
+                {php(plan.foodVariance.forecast)}/mo
+              </span>
+            </div>
+            {plan.foodVariance.gap > 0 ? (
+              <Aside tilt={-1.5} tint="brick" className="mt-2">
+                {php(plan.foodVariance.gap)}/mo more than budgeted — either the days shift or
+                the allowance does
+              </Aside>
+            ) : (
+              <Aside tilt={-1.5} tint="green" className="mt-2">
+                your week fits inside the allowance
               </Aside>
             )}
           </Card>

@@ -5,20 +5,24 @@ import { usePathname } from 'next/navigation';
 import { useState } from 'react';
 import { supabase } from '@/lib/supabase';
 
+/**
+ * Savings sits here rather than behind MORE because it is the thing being
+ * worked toward. Food gave up the slot: it was a configuration screen you set
+ * once and rarely reopen, and its day types now live in Settings with the rest
+ * of the configuration while its forecast shows on Plan, where it is used.
+ */
 const TABS = [
   { href: '/', label: 'Today' },
   { href: '/plan', label: 'Plan' },
   { href: '/ledger', label: 'Ledger' },
-  { href: '/food', label: 'Food' },
+  { href: '/savings', label: 'Savings' },
 ];
 
-/** Nine screens do not fit four tabs, so the rest live behind MORE. */
 const MORE = [
-  { href: '/savings', label: 'Savings', note: 'the balance and the goal' },
   { href: '/what-if', label: 'What-if', note: 'drag the numbers, nothing saves' },
   { href: '/pending', label: 'Pending', note: 'known, but not yet priced' },
   { href: '/log', label: 'Log', note: 'every change, newest first' },
-  { href: '/settings', label: 'Settings', note: 'people, phases, categories' },
+  { href: '/settings', label: 'Settings', note: 'people, phases, food, categories' },
 ];
 
 export function TabBar() {
