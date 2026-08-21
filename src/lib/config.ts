@@ -6,11 +6,29 @@
 export type Payer = 'her' | 'him' | 'split' | 'each';
 export type Cadence = 'onetime' | 'monthly';
 
+/**
+ * How each payer reads in the interface. Lowercase on purpose — these render in
+ * marker as a jotted note, not as a heading.
+ */
 export const PAYER_LABEL: Record<Payer, string> = {
-  her: 'Her',
-  him: 'Him',
+  her: 'tin',
+  him: 'jhay',
+  split: 'both',
+  each: 'both',
+};
+
+/** The qualifier that sits beside the name, never on a row of its own. */
+export const PAYER_NOTE: Partial<Record<Payer, string>> = {
   split: '50/50',
-  each: 'Each pays own',
+  each: 'each pays own',
+};
+
+/** Long form, for the payer picker where the shape mark is not enough. */
+export const PAYER_DESCRIPTION: Record<Payer, string> = {
+  her: 'tin pays',
+  him: 'jhay pays',
+  split: 'split 50/50',
+  each: 'each pays their own',
 };
 
 export type LineItem = {
@@ -55,13 +73,32 @@ export type MoneyIn = {
   note?: string;
 };
 
+/** A kind of day, priced. The plan is a weighted average over these. */
 export type DayType = { id: string; label: string; amount: number; perWeek: number };
+
+/**
+ * A recurring add-on that rides on top of whichever kind of day it is —
+ * coffee runs, a gym day, anything with a per-occurrence cost and a weekly
+ * rhythm. Independent of day type on purpose: a coffee run is a coffee run
+ * whether the day was lean or loose.
+ */
+export type Extra = { id: string; label: string; cost: number; perWeek: number };
+
+/** What a logged entry can be filed under. Free-form; edited in Settings. */
+export type CategoryDef = { id: string; label: string };
 
 export type FoodConfig = {
   dayTypes: DayType[];
-  coffee: { cost: number; perWeek: number };
+  extras: Extra[];
+  categories: CategoryDef[];
   daysPerMonth: number;
   dailyBudget: number;
+};
+
+/** Shapes this config has had before, kept only so `migrate` can read them. */
+export type LegacyFoodConfig = FoodConfig & {
+  /** Superseded by `extras`; a lone hard-coded coffee layer. */
+  coffee?: { cost: number; perWeek: number };
 };
 
 export type Config = {
@@ -117,12 +154,49 @@ export const DEFAULT_CONFIG: Config = {
   ],
   food: {
     dayTypes: [
-      { id: 'tipid', label: 'Tipid',            amount: 160, perWeek: 2 },
-      { id: 'mid',   label: 'Not-so-tipid',     amount: 450, perWeek: 3 },
-      { id: 'lax',   label: 'Not tipid at all', amount: 780, perWeek: 2 },
+      { id: 'lean',   label: 'Lean',   amount: 160, perWeek: 2 },
+      { id: 'normal', label: 'Normal', amount: 450, perWeek: 3 },
+      { id: 'loose',  label: 'Loose',  amount: 780, perWeek: 2 },
     ],
-    coffee: { cost: 130, perWeek: 3 },
+    extras: [{ id: 'coffee', label: 'Coffee', cost: 130, perWeek: 3 }],
+    categories: [
+      // `meals` is what a whole-day log lands under; `extras` catches a
+      // recurring extra that has no category of its own.
+      { id: 'meals',     label: 'Meals' },
+      { id: 'groceries', label: 'Groceries' },
+      { id: 'eatout',    label: 'Eat out' },
+      { id: 'coffee',    label: 'Coffee' },
+      { id: 'delivery',  label: 'Delivery' },
+      { id: 'snacks',    label: 'Snacks' },
+      { id: 'extras',    label: 'Extras' },
+    ],
     daysPerMonth: 30,
     dailyBudget: 500,
   },
 };
+
+/** A category id that is no longer configured still has to render. */
+export function categoryLabel(id: string, categories: CategoryDef[]): string {
+  return categories.find((c) => c.id === id)?.label ?? id;
+}
+
+/**
+ * Coffee used to be a single hard-coded layer on top of the day types; it is
+ * now one recurring extra among however many the couple keep. A config written
+ * before that change still has `coffee` and no `extras`, so lift it across
+ * rather than silently dropping the cost out of the forecast.
+ */
+export function migrateFood(stored: LegacyFoodConfig | undefined) {
+  const food = { ...DEFAULT_CONFIG.food, ...stored };
+
+  if (!stored?.extras?.length && stored?.coffee) {
+    food.extras = [{ id: 'coffee', label: 'Coffee', ...stored.coffee }];
+  }
+  if (!stored?.categories?.length) {
+    food.categories = DEFAULT_CONFIG.food.categories;
+  }
+
+  // `coffee` is not part of the current shape; drop it so it stops round-tripping.
+  delete (food as LegacyFoodConfig).coffee;
+  return food;
+}

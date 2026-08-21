@@ -1,7 +1,7 @@
 import { php } from '@/lib/model';
 
 /** A signed figure, green for surplus and brick for deficit. */
-export function Signed({ value, size = '1rem' }: { value: number; size?: string }) {
+export function Signed({ value, size = '15px' }: { value: number; size?: string }) {
   const negative = value < 0;
   return (
     <span
@@ -14,28 +14,34 @@ export function Signed({ value, size = '1rem' }: { value: number; size?: string 
   );
 }
 
-/** Label ......... amount, the receipt row used across every screen. */
+/**
+ * The receipt row used across every screen: an optional payer mark, a label,
+ * and the amount in mono on the right.
+ */
 export function Row({
+  mark,
   label,
   sub,
   amount,
   tint,
-  strong,
+  trailing,
 }: {
+  mark?: React.ReactNode;
   label: React.ReactNode;
   sub?: React.ReactNode;
   amount: React.ReactNode;
   tint?: 'green' | 'brick' | 'gold' | 'muted';
-  strong?: boolean;
+  trailing?: React.ReactNode;
 }) {
   return (
-    <div className="py-1.5">
-      <div className="leader">
-        <span className={`text-[0.88rem] ${strong ? 'serif' : ''}`}>{label}</span>
-        <span className="leader-fill" aria-hidden />
-        <span className={`num text-[0.88rem] ${tint ? `tint-${tint}` : ''}`}>{amount}</span>
-      </div>
-      {sub && <p className="tint-muted mt-0.5 text-[0.72rem]">{sub}</p>}
+    <div className="row">
+      {mark}
+      <span className="row-label">
+        {label}
+        {sub && <span className="row-meta block">{sub}</span>}
+      </span>
+      {trailing}
+      <span className={`num num-row ${tint ? `tint-${tint}` : ''}`}>{amount}</span>
     </div>
   );
 }

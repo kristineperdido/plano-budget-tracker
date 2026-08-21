@@ -1,18 +1,47 @@
 @import 'tailwindcss';
 
-:root {
-  --paper: #f0e6ce;
-  --paper-light: #fbf6e8;
-  --ink: #241e15;
-  --brick: #b5432e;
-  --green: #3e5c3b;
-  --gold: #c1861e;
-  --charcoal: #7a6f5d;
-  --rule: #d9cdae;
+/* ============================================================
+   Plano — "Tarpaulin & Notebook"
 
-  --serif: Georgia, 'Iowan Old Style', 'Times New Roman', serif;
-  --mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+   A sari-sari store storefront: a painted tarp over ruled
+   notebook paper, prices in marker, masking tape holding the
+   panels down. Every peso amount stays in clean tabular mono —
+   in a real store the numbers are the one thing written
+   carefully.
+
+   --teal and --tape are structural only. Neither may ever be
+   applied to a number.
+   ============================================================ */
+
+:root {
+  /* Ground */
+  --paper: #f4ead1;
+  --paper-light: #fbf6e8;
+  --paper-panel: rgb(251 246 232 / 0.72);
+  --ink: #241e15;
+
+  /* Semantic — one meaning each, never borrowed for decoration */
+  --green: #3e5c3b;          /* under budget, surplus */
+  --brick: #b5432e;          /* over budget, deficit */
+  --gold: #c1861e;           /* pending, uncertain, not-yet-trustworthy */
+  --charcoal: #6e6350;       /* labels, meta */
+
+  /* Structure */
+  --rule: #cbbb95;
+  --rule-soft: #a79a80;
+  --track: #e5d8b7;
+  --teal: #2f7a82;           /* ruled lines, small-caps labels, eyelets */
+  --tape: rgb(222 154 143 / 0.5);
+
+  /* Type. --font-anton and --font-caveat come from next/font in layout.tsx. */
+  --sign: var(--font-anton), 'Anton', system-ui, sans-serif;
+  --marker: var(--font-caveat), 'Caveat', ui-rounded, cursive;
   --sans: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+
+  /* Ruled-paper geometry */
+  --line-height-ruled: 34px;
+  --margin-x: 34px;
 }
 
 * {
@@ -23,159 +52,515 @@ html,
 body {
   margin: 0;
   padding: 0;
-}
-
-body {
   background: var(--paper);
   color: var(--ink);
   font-family: var(--sans);
   -webkit-font-smoothing: antialiased;
-  /* Keep the paper colour behind the notch / home indicator. */
   min-height: 100dvh;
 }
 
-/* Numbers align everywhere — this is a running tally, not a dashboard. */
-.num {
-  font-family: var(--mono);
-  font-variant-numeric: tabular-nums;
-  letter-spacing: -0.02em;
-}
+a { color: var(--brick); }
+a:hover { color: #8e3423; }
 
-.serif {
-  font-family: var(--serif);
-}
-
-/* ---------------------------------------------------------------- receipt */
-
-.sheet {
-  background: var(--paper-light);
-  border: 1px solid var(--rule);
-  border-radius: 2px;
-  box-shadow: 0 1px 0 rgb(36 30 21 / 0.04);
-}
-
-/* Label ......................... amount */
-.leader {
-  display: flex;
-  align-items: baseline;
-  gap: 0.5rem;
-  width: 100%;
-}
-
-.leader > .leader-fill {
-  flex: 1;
-  border-bottom: 1px dotted var(--rule);
-  transform: translateY(-0.28em);
-  min-width: 1rem;
-}
-
-.rule-dashed {
-  border-top: 1px dashed var(--rule);
-}
-
-/* Perforated top/bottom edge, like a torn receipt. */
-.perf {
-  height: 8px;
-  background-image: radial-gradient(circle at 5px 0, transparent 4px, var(--paper-light) 4px);
-  background-size: 10px 8px;
-  background-repeat: repeat-x;
-}
-
-.tint-green {
-  color: var(--green);
-}
-.tint-brick {
-  color: var(--brick);
-}
-.tint-gold {
-  color: var(--gold);
-}
-.tint-muted {
-  color: var(--charcoal);
-}
-
-/* Tap targets stay comfortable on a phone. */
 button {
   font: inherit;
   color: inherit;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  * {
-    animation-duration: 0.01ms !important;
-    transition-duration: 0.01ms !important;
-  }
+/* ------------------------------------------------------------
+   THE PAGE — ruled notebook paper with a red margin rule.
+   ------------------------------------------------------------ */
+.paper {
+  background-color: var(--paper);
+  background-image: repeating-linear-gradient(
+    to bottom,
+    transparent 0 33px,
+    rgb(47 122 130 / 0.13) 33px 34px
+  );
+  position: relative;
+}
+.paper::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: var(--margin-x);
+  width: 1px;
+  background: rgb(181 67 46 / 0.28);
+  pointer-events: none;
+}
+/* Content clears the margin rule on the left, normal gutter on the right. */
+.paper-body { padding: 0 16px 0 44px; }
+
+/* ------------------------------------------------------------
+   THE TARP — the painted header. One per screen, at the top.
+   ------------------------------------------------------------ */
+.tarp {
+  position: relative;
+  background: var(--ink);
+  box-shadow: 0 3px 0 0 rgb(36 30 21 / 0.16);
+}
+.tarp-inner {
+  padding: 15px 26px 14px;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+.tarp-title {
+  font: 400 25px/1 var(--sign);
+  letter-spacing: 0.03em;
+  color: var(--paper);
+  text-transform: uppercase;
+}
+.tarp-meta {
+  font: 400 11px/1 var(--sign);
+  letter-spacing: 0.2em;
+  color: var(--gold);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+/* Eyelets — the two grommets punched through the corners. */
+.tarp::before,
+.tarp::after {
+  content: '';
+  position: absolute;
+  top: 7px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--paper);
+  opacity: 0.5;
+}
+.tarp::before { left: 9px; }
+.tarp::after { right: 9px; }
+
+.tarp-stripe {
+  height: 5px;
+  background: repeating-linear-gradient(
+    to right,
+    var(--gold) 0 16px,
+    var(--teal) 16px 32px,
+    var(--brick) 32px 48px
+  );
 }
 
-/* ------------------------------------------------------------------- nav */
+/* ------------------------------------------------------------
+   TYPE ROLES
+   ------------------------------------------------------------ */
+.sign { font-family: var(--sign); letter-spacing: 0.04em; text-transform: uppercase; }
+.sign-label { font: 400 11px/1 var(--sign); letter-spacing: 0.16em; text-transform: uppercase; }
+.marker { font-family: var(--marker); font-weight: 600; line-height: 1.3; }
+.marker-tilt { transform: rotate(-0.7deg); }
 
-.tabbar {
+/* MONEY. Never any other family, never rotated, never uppercase. */
+.num {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+.num-hero { font-size: 54px; line-height: 1; letter-spacing: -0.03em; }
+.num-forecast { font-size: 52px; line-height: 1; letter-spacing: -0.03em; }
+.num-lg { font-size: 27px; line-height: 1; letter-spacing: -0.03em; }
+.num-row { font-size: 14px; line-height: 1; }
+
+.tint-green { color: var(--green); }
+.tint-brick { color: var(--brick); }
+.tint-gold { color: var(--gold); }
+.tint-muted { color: var(--charcoal); }
+.tint-teal { color: var(--teal); }
+
+/* ------------------------------------------------------------
+   PANEL — a sheet laid on the ruled paper.
+   ------------------------------------------------------------ */
+.panel {
+  border: 1px solid var(--rule);
+  background: var(--paper-panel);
+  padding: 14px;
+  position: relative;
+}
+/* Masking tape. Rotations are authored, never randomised at runtime. */
+.tape {
+  position: absolute;
+  top: -9px;
+  width: 86px;
+  height: 21px;
+  background: var(--tape);
+  transform: rotate(-2.1deg);
+  pointer-events: none;
+}
+.tape-r { transform: rotate(2.4deg); }
+
+/* ------------------------------------------------------------
+   ROWS — payer mark, label, dotted rule, amount.
+   ------------------------------------------------------------ */
+.row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 0;
+  border-bottom: 1px dotted var(--rule);
+  min-height: 44px;
+}
+.row:last-child { border-bottom: 0; }
+.row-label { font: 400 13.5px/1.3 var(--sans); flex: 1; }
+.row-leader { flex: 1; border-bottom: 1px solid var(--rule); transform: translateY(-4px); }
+.row-meta { font: 400 11.5px/1.3 var(--sans); color: var(--charcoal); }
+
+/* A section header: LABEL ————————— subtotal, all on one line. */
+.leader {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  width: 100%;
+}
+.leader-fill {
+  flex: 1;
+  border-bottom: 1px solid var(--rule);
+  transform: translateY(-4px);
+  min-width: 1rem;
+}
+
+/* An amount the user can tap to edit gets the soft underline. */
+.amount-editable {
+  border-bottom: 1px dotted var(--rule-soft);
+  padding-bottom: 1px;
+}
+
+/* ------------------------------------------------------------
+   WHO PAID — shape first, name second. Never colour-coded:
+   green/brick/gold are reserved for over/under/uncertain.
+   ------------------------------------------------------------ */
+.payer { display: inline-flex; align-items: center; gap: 5px; flex: none; }
+.payer-fixed { width: 52px; }
+.payer-name { font: 600 17px/1 var(--marker); color: var(--ink); }
+.payer-mark { width: 9px; height: 9px; flex: none; display: flex; }
+.payer-mark--solid { background: var(--ink); }
+.payer-mark--hollow { border: 2px solid var(--ink); }
+.payer-mark--both { width: auto; }
+.payer-mark--both > :first-child { width: 9px; height: 9px; background: var(--ink); flex: none; }
+.payer-mark--both > :last-child {
+  width: 9px;
+  height: 9px;
+  border: 2px solid var(--ink);
+  margin-left: -3px;
+  background: var(--paper);
+  flex: none;
+}
+
+/* ------------------------------------------------------------
+   PACE BAR — fill is spend, the 2px rule is where today should be.
+   ------------------------------------------------------------ */
+.pace {
+  position: relative;
+  height: 13px;
+  background: var(--track);
+  border: 1px solid var(--rule);
+}
+.pace-fill { position: absolute; inset: 0 auto 0 0; background: var(--green); opacity: 0.82; }
+.pace-fill--over { background: var(--brick); }
+.pace-marker { position: absolute; top: -4px; bottom: -4px; width: 2px; background: var(--ink); }
+
+/* ------------------------------------------------------------
+   TALLY MARKS — hand strokes, one per day. Decorative duplicates
+   of an adjacent number, so they are always aria-hidden.
+   ------------------------------------------------------------ */
+.tally { display: flex; align-items: flex-end; gap: 4px; height: 20px; }
+.tally-mark { width: 2.5px; height: 19px; background: var(--ink); flex: none; }
+.tally-mark:nth-child(2n) { transform: rotate(4deg); height: 20px; }
+.tally-mark:nth-child(3n) { transform: rotate(-5deg); height: 18px; }
+/* Scoped to .tally so it outweighs the :nth-child rotations above — otherwise
+   the tenth stroke (both a 5n slash and a 2n tilt) would lose its slash. */
+.tally .tally-mark--slash {
+  width: 19px;
+  height: 2px;
+  transform: rotate(-13deg) translate(-16px, -6px);
+}
+.tally--green .tally-mark { background: var(--green); }
+.tally--gold .tally-mark { background: var(--gold); }
+.tally--brick .tally-mark { background: var(--brick); }
+
+/* ------------------------------------------------------------
+   STAMPS — rubber-stamped status, slightly off-square.
+   ------------------------------------------------------------ */
+.stamp {
+  font: 400 9.5px/1 var(--sign);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  border: 1.5px solid currentColor;
+  padding: 4px 6px;
+  transform: rotate(-1.6deg);
+  display: inline-block;
+}
+.stamp--gold { color: var(--gold); }
+.stamp--green { color: var(--green); }
+.stamp--brick { color: var(--brick); }
+.stamp--muted { color: var(--charcoal); }
+
+/* ------------------------------------------------------------
+   BUTTONS — the hard drop shadow is the whole idiom. No blur.
+   ------------------------------------------------------------ */
+.btn {
+  display: block;
+  width: 100%;
+  text-align: center;
+  font: 400 13px/1 var(--sign);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 15px 0;
+  border: 0;
+  cursor: pointer;
+}
+.btn--primary {
+  background: var(--brick);
+  color: var(--paper);
+  box-shadow: 0 4px 0 0 rgb(36 30 21 / 0.25);
+}
+.btn--primary:active { transform: translateY(3px); box-shadow: 0 1px 0 0 rgb(36 30 21 / 0.25); }
+.btn--primary:disabled { opacity: 0.45; box-shadow: none; transform: none; cursor: default; }
+.btn--ghost {
+  background: transparent;
+  color: var(--charcoal);
+  border: 1px solid var(--rule);
+}
+.btn--outline-brick {
+  background: transparent;
+  color: var(--brick);
+  border: 1px solid var(--brick);
+}
+.btn--dashed {
+  background: transparent;
+  border: 1px dashed var(--rule);
+  color: var(--charcoal);
+  font: 600 18px/1 var(--marker);
+  letter-spacing: 0;
+  text-transform: none;
+  padding: 12px 0;
+}
+
+/* A tappable option row — day types, phases, payer picks. */
+.chip {
+  border: 1px solid var(--rule);
+  padding: 7px 11px;
+  font: 400 11px/1 var(--sign);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--charcoal);
+  background: transparent;
+  cursor: pointer;
+}
+.chip[data-on='true'] {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--paper);
+}
+/* The marker variant, for picking a person. */
+.chip--marker {
+  font: 600 17px/1 var(--marker);
+  letter-spacing: 0;
+  text-transform: none;
+  padding: 6px 13px;
+  color: var(--ink);
+}
+
+/* Toggle — square, no radius. */
+.toggle {
+  width: 42px;
+  height: 23px;
+  background: var(--rule);
+  position: relative;
+  flex: none;
+  border: 0;
+  cursor: pointer;
+  padding: 0;
+}
+.toggle[data-on='true'] { background: var(--ink); }
+.toggle-knob {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 17px;
+  height: 17px;
+  background: var(--paper);
+  transition: left 120ms linear, right 120ms linear;
+}
+.toggle[data-on='true'] .toggle-knob { left: auto; right: 3px; }
+
+/* Numeric input, sitting on the ruled paper. */
+.field {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  text-align: right;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px dotted var(--rule-soft);
+  border-radius: 0;
+  outline: none;
+  padding: 1px 0;
+  color: inherit;
+}
+.field:focus { border-bottom-style: solid; border-bottom-color: var(--ink); }
+
+/* Text input — the email box, category names. */
+.field-text {
+  font: 400 14px/1.2 var(--sans);
+  background: var(--paper-light);
+  border: 1px solid var(--rule);
+  border-radius: 0;
+  outline: none;
+  padding: 12px;
+  color: inherit;
+  width: 100%;
+}
+.field-text:focus { border-color: var(--ink); }
+
+/* Sliders — 5px track, square gold handle, tilted a few degrees. */
+.slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 5px;
+  background: var(--track);
+  border: 1px solid var(--rule);
+  outline: none;
+  border-radius: 0;
+}
+.slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 19px;
+  height: 19px;
+  background: var(--gold);
+  border: 1px solid var(--ink);
+  border-radius: 0;
+  transform: rotate(-3deg);
+  cursor: pointer;
+}
+.slider::-moz-range-thumb {
+  width: 19px;
+  height: 19px;
+  background: var(--gold);
+  border: 1px solid var(--ink);
+  border-radius: 0;
+  transform: rotate(-3deg);
+  cursor: pointer;
+}
+
+/* Floating log button — the one round thing in the design. */
+.fab {
+  position: fixed;
+  right: 18px;
+  bottom: calc(74px + env(safe-area-inset-bottom));
+  z-index: 25;
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  background: var(--brick);
+  color: var(--paper);
+  display: grid;
+  place-items: center;
+  font: 400 30px/1 var(--sign);
+  box-shadow: 0 5px 0 0 rgb(36 30 21 / 0.22);
+  border: 0;
+  cursor: pointer;
+}
+.fab:active { transform: translateY(3px); box-shadow: 0 2px 0 0 rgb(36 30 21 / 0.22); }
+
+/* ------------------------------------------------------------
+   TAB BAR — painted board, active tab underlined in gold.
+   ------------------------------------------------------------ */
+.tabs {
   position: fixed;
   bottom: 0;
   left: 0;
   right: 0;
   z-index: 30;
   display: flex;
-  justify-content: center;
-  gap: 0.15rem;
-  border-top: 1px solid var(--rule);
-  background: var(--paper);
-  padding: 0.4rem 0.5rem calc(0.4rem + env(safe-area-inset-bottom));
-}
-
-.tabbar a {
-  flex: 1;
-  max-width: 5.2rem;
-  text-align: center;
-  padding: 0.4rem 0.1rem;
-  font-size: 0.66rem;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--charcoal);
-  text-decoration: none;
-  border-radius: 2px;
-}
-
-.tabbar a[data-active='true'] {
-  color: var(--ink);
-  background: var(--paper-light);
-  border: 1px solid var(--rule);
-}
-
-/* Stamped headings, like a ledger book section. */
-.stamp {
-  font-size: 0.68rem;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  color: var(--charcoal);
-}
-
-.chip {
-  border: 1px solid var(--rule);
-  border-radius: 2px;
-  padding: 0.35rem 0.6rem;
-  font-size: 0.75rem;
-  color: var(--charcoal);
-  background: transparent;
-}
-
-.chip[data-on='true'] {
   background: var(--ink);
-  border-color: var(--ink);
-  color: var(--paper-light);
+  padding-bottom: env(safe-area-inset-bottom);
 }
-
-.field {
-  font-family: var(--mono);
-  font-variant-numeric: tabular-nums;
-  text-align: right;
+.tab {
+  flex: 1;
+  text-align: center;
+  padding: 13px 0 14px;
+  font: 400 11px/1 var(--sign);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #8c8271;
+  text-decoration: none;
+  border: 0;
   background: transparent;
-  border-bottom: 1px dotted var(--rule);
-  outline: none;
-  padding: 0.1rem 0;
+  cursor: pointer;
+}
+.tab[aria-current='page'] {
+  color: var(--paper);
+  border-bottom: 3px solid var(--gold);
 }
 
-.field:focus {
-  border-bottom-style: solid;
-  border-bottom-color: var(--ink);
+/* ------------------------------------------------------------
+   BOTTOM SHEET — the logging sheet and the MORE menu.
+   ------------------------------------------------------------ */
+.scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: rgb(36 30 21 / 0.55);
+  border: 0;
+  padding: 0;
+}
+.sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 41;
+  margin: 0 auto;
+  max-width: 28rem;
+  max-height: 88dvh;
+  overflow-y: auto;
+  background: var(--paper);
+  border-top: 1px solid var(--rule);
+  padding: 22px 18px calc(20px + env(safe-area-inset-bottom));
+}
+
+/* ------------------------------------------------------------
+   EMPTY & LOADING — always marker, always in character.
+   ------------------------------------------------------------ */
+.empty {
+  font: 600 19px/1.3 var(--marker);
+  color: var(--charcoal);
+  transform: rotate(-0.5deg);
+}
+/* A handwritten aside. Rotation is authored per instance via --tilt. */
+.aside {
+  font: 600 19px/1.25 var(--marker);
+  color: var(--charcoal);
+  transform: rotate(var(--tilt, -2deg));
+}
+
+/* The hand-drawn circle around the buffer on Today. */
+.circled {
+  position: absolute;
+  inset: -14px -22px;
+  border: 2.5px solid var(--brick);
+  border-radius: 50% 48% 52% 50%;
+  transform: rotate(-3.4deg);
+  opacity: 0.85;
+  pointer-events: none;
+}
+
+/* Sign-in inverts: a rolled shutter over the dark ground. */
+.shutter {
+  background-image: repeating-linear-gradient(
+    to bottom,
+    rgb(244 234 209 / 0.14) 0 5px,
+    transparent 5px 10px
+  );
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn--primary:active,
+  .fab:active { transform: none; }
+  .toggle-knob { transition: none; }
 }

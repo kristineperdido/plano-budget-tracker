@@ -1,34 +1,46 @@
-import { DAILY_BUDGET, php, type TodayStats } from '@/lib/model';
+import { php, type TodayStats } from '@/lib/model';
+import { Aside } from '@/components/Screen';
 
+/**
+ * The one number that matters, circled in marker. The circle is the only
+ * hand-drawn shape in the design that carries meaning rather than decoration:
+ * it says "this is the figure to read".
+ */
 export function BufferHeadline({ s }: { s: TodayStats }) {
   const over = s.buffer < 0;
   const amount = Math.abs(s.buffer);
 
   return (
-    <section className="px-5 pt-7 pb-6 text-center">
-      <p className="tint-muted text-[0.7rem] uppercase tracking-[0.18em]">
+    <section className="relative pt-6 pb-4 text-center">
+      <p className="sign-label tint-teal" style={{ letterSpacing: '0.2em' }}>
         {over ? 'Over pace' : 'Available to spend'}
       </p>
 
-      <p
-        className={`num mt-2 text-[3.1rem] leading-none ${over ? 'tint-brick' : 'tint-green'}`}
-        aria-label={`${php(amount)} ${over ? 'over pace' : 'available'}`}
+      <div className="relative mt-3 inline-block px-5 py-1.5">
+        <span className="circled" aria-hidden />
+        <span
+          className={`num num-hero relative ${over ? 'tint-brick' : 'tint-green'}`}
+          aria-label={`${php(amount)} ${over ? 'over pace' : 'available to spend'}`}
+        >
+          {over ? '−' : ''}
+          {php(amount)}
+        </span>
+      </div>
+
+      <Aside
+        tilt={4}
+        tint={over ? 'brick' : 'green'}
+        className="absolute right-0 top-[92px] text-left"
       >
-        {over ? '−' : ''}
-        {php(amount)}
-      </p>
+        {over ? 'ease up' : 'still room'}
+      </Aside>
 
-      <p className="tint-muted serif mt-3 text-[0.82rem] italic">
-        {php(DAILY_BUDGET)}/day × {s.daysElapsed}{' '}
-        {s.daysElapsed === 1 ? 'day' : 'days'} = {php(s.accrued)}, spent {php(s.spentMonth)}
+      <p className="tint-muted mt-4 text-[12.5px] leading-[1.5]">
+        {php(s.dailyBudget)} × {s.daysElapsed} {s.daysElapsed === 1 ? 'day' : 'days'} ={' '}
+        {php(s.accrued)}
+        <br />
+        spent {php(s.spentMonth)}
       </p>
-
-      {s.spentToday > 0 && (
-        <p className="mt-1 text-[0.82rem]">
-          <span className="tint-muted">Today so far </span>
-          <span className="num">{php(s.spentToday)}</span>
-        </p>
-      )}
     </section>
   );
 }

@@ -1,11 +1,10 @@
-export const CATEGORIES = ['groceries', 'eatout', 'coffee'] as const;
-export type Category = (typeof CATEGORIES)[number];
-
-export const CATEGORY_LABEL: Record<Category, string> = {
-  groceries: 'Groceries',
-  eatout: 'Eat out',
-  coffee: 'Coffee',
-};
+/**
+ * A category is just a string id resolved against `config.food.categories`.
+ * It is deliberately not a closed union: categories are edited in Settings,
+ * and the database stores plain text with no CHECK constraint, so adding one
+ * needs neither a deploy nor a migration.
+ */
+export type Category = string;
 
 export type FoodEntry = {
   id: string;

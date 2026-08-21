@@ -39,11 +39,11 @@ export function AmountField({
   }
 
   return (
-    <span className="inline-flex items-baseline">
-      {prefix && <span className="num tint-muted text-[0.8rem]">{prefix}</span>}
+    <span className="amount-editable inline-flex items-baseline">
+      {prefix && <span className="num tint-muted text-[12px]">{prefix}</span>}
       <input
         aria-label={label}
-        className="field text-[0.88rem]"
+        className="field text-[14px]"
         style={{ width }}
         inputMode="decimal"
         value={draft ?? String(value)}

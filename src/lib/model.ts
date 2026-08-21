@@ -1,43 +1,11 @@
 import { daysInMonth, monthStart, parseISO } from './date';
 import type { FoodEntry } from './types';
 
-/** Static daily allowance. Underspend rolls forward as buffer. */
-export const DAILY_BUDGET = 500;
-
-// ---------------------------------------------------------------- food model
-
-export type DayType = { key: string; label: string; amount: number; perWeek: number };
-
-export const DEFAULT_DAY_TYPES: DayType[] = [
-  { key: 'tipid', label: 'Tipid', amount: 160, perWeek: 2 },
-  { key: 'mid', label: 'Not-so-tipid', amount: 450, perWeek: 3 },
-  { key: 'lax', label: 'Not tipid at all', amount: 780, perWeek: 2 },
-];
-
-export const DEFAULT_COFFEE = { cost: 130, perWeek: 3 };
-
 /**
- * Weighted meal cost per day, with coffee as an independent layer on top —
- * coffee runs are not tied to which kind of day it is.
+ * Fallback daily allowance, used only before the config has loaded. The real
+ * figure lives in `config.food.dailyBudget` and is editable in Settings.
  */
-export function foodForecast(
-  dayTypes: DayType[] = DEFAULT_DAY_TYPES,
-  coffee = DEFAULT_COFFEE,
-) {
-  const weeks = dayTypes.reduce((s, t) => s + t.perWeek, 0);
-  const foodPerDay = weeks
-    ? dayTypes.reduce((s, t) => s + t.amount * t.perWeek, 0) / weeks
-    : 0;
-  const coffeePerDay = (coffee.cost * coffee.perWeek) / 7;
-  return {
-    foodPerDay,
-    coffeePerDay,
-    perDay: foodPerDay + coffeePerDay,
-    perMonth: (foodPerDay + coffeePerDay) * 30,
-    /** What dropping one weekly coffee run frees up per month. */
-    perSkippedCoffeeRun: (coffee.cost / 7) * 30,
-  };
-}
+export const DEFAULT_DAILY_BUDGET = 500;
 
 // -------------------------------------------------------------- buffer math
 
@@ -45,7 +13,9 @@ export type TodayStats = {
   /** Days of the month elapsed, today included. */
   daysElapsed: number;
   daysInMonth: number;
-  /** Budget accrued so far this month: DAILY_BUDGET x daysElapsed. */
+  /** The per-day allowance these figures were computed against. */
+  dailyBudget: number;
+  /** Budget accrued so far this month: dailyBudget x daysElapsed. */
   accrued: number;
   monthlyBudget: number;
   spentToday: number;
@@ -64,7 +34,11 @@ export type TodayStats = {
   projectedMonth: number;
 };
 
-export function computeToday(entries: FoodEntry[], today: string): TodayStats {
+export function computeToday(
+  entries: FoodEntry[],
+  today: string,
+  dailyBudget: number = DEFAULT_DAILY_BUDGET,
+): TodayStats {
   const dim = daysInMonth(today);
   const daysElapsed = parseISO(today).d;
   const start = monthStart(today);
@@ -78,12 +52,13 @@ export function computeToday(entries: FoodEntry[], today: string): TodayStats {
     if (e.spent_on === today) spentToday += e.amount;
   }
 
-  const accrued = DAILY_BUDGET * daysElapsed;
-  const monthlyBudget = DAILY_BUDGET * dim;
+  const accrued = dailyBudget * daysElapsed;
+  const monthlyBudget = dailyBudget * dim;
 
   return {
     daysElapsed,
     daysInMonth: dim,
+    dailyBudget,
     accrued,
     monthlyBudget,
     spentToday,

@@ -71,3 +71,14 @@ export function relativeDate(iso: string, today: string): string {
   if (iso === addDays(today, -1)) return 'Yesterday';
   return shortDate(iso);
 }
+
+/**
+ * Which month of the timeline a date falls in, counting from `startMonth`
+ * (YYYY-MM). Negative before the plan begins. Month arithmetic only — the
+ * day-of-month is irrelevant, so this is safe across the Manila offset.
+ */
+export function monthIndexOf(startMonth: string, iso: string): number {
+  const [sy, sm] = startMonth.split('-').map(Number);
+  const { y, m } = parseISO(iso);
+  return (y - sy) * 12 + (m - sm);
+}

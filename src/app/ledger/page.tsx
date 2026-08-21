@@ -2,29 +2,37 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AmountField } from '@/components/AmountField';
-import { Screen } from '@/components/Screen';
+import { Screen, Aside } from '@/components/Screen';
+import { PayerTag } from '@/components/Payer';
 import {
-  PAYER_LABEL,
+  PAYER_DESCRIPTION,
+  type Cadence,
   type Config,
   type LineItem,
   type Payer,
 } from '@/lib/config';
 import { fetchConfig, logChange, saveConfig } from '@/lib/configStore';
+import { foodForecast } from '@/lib/engine';
 import { php } from '@/lib/model';
 
-const GROUPS: { key: LineItem['group']; title: string }[] = [
-  { key: 'movein', title: 'Move-in' },
-  { key: 'housing', title: 'Housing' },
-  { key: 'living', title: 'Living' },
-  { key: 'personal', title: 'Personal' },
-];
-
 const PAYERS: Payer[] = ['her', 'him', 'split', 'each'];
+
+/**
+ * The ledger reads as a priced-up list, so it groups by *when* a cost lands
+ * rather than by which part of the flat it belongs to: what you pay once to get
+ * in, and what comes back every month.
+ */
+const SECTIONS: { cadence: Cadence; title: string }[] = [
+  { cadence: 'onetime', title: 'Move-in' },
+  { cadence: 'monthly', title: 'Every month' },
+];
 
 export default function LedgerPage() {
   const [config, setConfig] = useState<Config | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  // Cadence, payer and start-month chips only appear on the row being edited.
+  const [editing, setEditing] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -56,11 +64,10 @@ export default function LedgerPage() {
   const updateItem = useCallback(
     (id: string, patch: Partial<LineItem>, note: string) => {
       if (!config) return;
-      const next = {
-        ...config,
-        items: config.items.map((i) => (i.id === id ? { ...i, ...patch } : i)),
-      };
-      void persist(next, note);
+      void persist(
+        { ...config, items: config.items.map((i) => (i.id === id ? { ...i, ...patch } : i)) },
+        note,
+      );
     },
     [config, persist],
   );
@@ -68,169 +75,227 @@ export default function LedgerPage() {
   const deleteItem = useCallback(
     (item: LineItem) => {
       if (!config) return;
-      const next = { ...config, items: config.items.filter((i) => i.id !== item.id) };
-      void persist(next, `Removed ${item.label}`);
+      void persist(
+        { ...config, items: config.items.filter((i) => i.id !== item.id) },
+        `Removed ${item.label}`,
+      );
     },
     [config, persist],
   );
 
   const addItem = useCallback(
-    (group: LineItem['group']) => {
+    (cadence: Cadence) => {
       if (!config) return;
       const item: LineItem = {
         id: `item-${Date.now()}`,
         label: 'New item',
         amount: 0,
-        cadence: 'monthly',
+        cadence,
         startMonth: 0,
         payer: 'split',
-        group,
+        group: cadence === 'onetime' ? 'movein' : 'living',
       };
+      setEditing(item.id);
       void persist({ ...config, items: [...config.items, item] }, 'Added a line item');
     },
     [config, persist],
   );
 
   const active = useMemo(() => config?.items.filter((i) => !i.pending) ?? [], [config]);
+  const forecast = useMemo(() => (config ? foodForecast(config.food) : null), [config]);
 
   return (
     <Screen
       title="Ledger"
-      action={saving ? <span className="tint-muted text-[0.7rem]">saving…</span> : undefined}
+      meta={
+        saving ? (
+          <span className="marker tint-gold text-[17px]">saving…</span>
+        ) : (
+          `${active.length} items`
+        )
+      }
     >
       {error && (
-        <p className="tint-brick mx-5 mt-4 text-[0.8rem]" role="alert">
+        <p className="tint-brick mt-4 text-[12.5px]" role="alert">
           {error}
         </p>
       )}
 
       {!config ? (
-        <p className="tint-muted serif px-5 py-16 text-center text-[0.9rem] italic">
-          Opening the ledger…
-        </p>
+        <p className="empty py-16 text-center">opening the ledger…</p>
       ) : (
         <>
-          {GROUPS.map((g) => {
-            const rows = active.filter((i) => i.group === g.key);
+          {SECTIONS.map((s) => {
+            const rows = active.filter((i) => i.cadence === s.cadence);
+            const subtotal = rows.reduce((sum, i) => sum + i.amount, 0);
             return (
-              <section key={g.key} className="px-5 pt-6">
-                <div className="mb-1 flex items-baseline justify-between">
-                  <h2 className="stamp">{g.title}</h2>
-                  <button
-                    type="button"
-                    onClick={() => addItem(g.key)}
-                    className="tint-muted text-[0.7rem] underline"
-                  >
-                    add
-                  </button>
+              <section key={s.cadence}>
+                <div className="leader mt-7 mb-1">
+                  <h2 className="sign-label tint-teal">{s.title}</h2>
+                  <span className="leader-fill" aria-hidden />
+                  <span className="num text-[13px]">{php(subtotal)}</span>
                 </div>
 
-                {rows.length === 0 && (
-                  <p className="tint-muted serif py-2 text-[0.8rem] italic">Nothing here.</p>
-                )}
+                {rows.length === 0 && <p className="empty py-3">nothing here yet</p>}
 
-                {rows.map((item) => (
-                  <div key={item.id} className="rule-dashed py-2 first:border-t-0">
-                    <div className="leader">
-                      <input
-                        aria-label={`Name of ${item.label}`}
-                        className="min-w-0 flex-shrink border-b border-transparent bg-transparent text-[0.88rem] outline-none focus:border-[var(--ink)]"
-                        value={item.label}
-                        onChange={(e) =>
-                          setConfig({
-                            ...config,
-                            items: config.items.map((i) =>
-                              i.id === item.id ? { ...i, label: e.target.value } : i,
-                            ),
-                          })
-                        }
-                        onBlur={(e) => updateItem(item.id, { label: e.target.value }, `Renamed to ${e.target.value}`)}
-                      />
-                      <span className="leader-fill" aria-hidden />
-                      <AmountField
-                        label={`Amount for ${item.label}`}
-                        value={item.amount}
-                        onCommit={(v) => updateItem(item.id, { amount: v }, `${item.label} set to ${php(v)}`)}
-                      />
-                      <button
-                        type="button"
-                        aria-label={`Delete ${item.label}`}
-                        onClick={() => deleteItem(item)}
-                        className="tint-muted -my-2 px-1.5 py-2 text-[0.95rem] leading-none"
-                      >
-                        ×
-                      </button>
-                    </div>
+                {rows.map((item) => {
+                  const open = editing === item.id;
+                  return (
+                    <div key={item.id}>
+                      <div className="row">
+                        <button
+                          type="button"
+                          onClick={() => setEditing(open ? null : item.id)}
+                          aria-expanded={open}
+                          aria-label={`Edit how ${item.label} is paid`}
+                          className="flex-none"
+                        >
+                          <PayerTag payer={item.payer} />
+                        </button>
 
-                    <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                      <button
-                        type="button"
-                        className="chip"
-                        onClick={() =>
-                          updateItem(
-                            item.id,
-                            { cadence: item.cadence === 'monthly' ? 'onetime' : 'monthly' },
-                            `${item.label} is now ${item.cadence === 'monthly' ? 'one-time' : 'monthly'}`,
-                          )
-                        }
-                      >
-                        {item.cadence === 'monthly' ? 'monthly' : 'one-time'}
-                      </button>
-
-                      <select
-                        aria-label={`Who pays for ${item.label}`}
-                        className="chip"
-                        value={item.payer}
-                        onChange={(e) =>
-                          updateItem(
-                            item.id,
-                            { payer: e.target.value as Payer },
-                            `${item.label} payer set to ${PAYER_LABEL[e.target.value as Payer]}`,
-                          )
-                        }
-                      >
-                        {PAYERS.map((p) => (
-                          <option key={p} value={p}>
-                            {PAYER_LABEL[p]}
-                          </option>
-                        ))}
-                      </select>
-
-                      <label className="chip flex items-center gap-1">
-                        <span>from month</span>
-                        <AmountField
-                          label={`Start month for ${item.label}`}
-                          prefix=""
-                          width="1.6rem"
-                          value={item.startMonth}
-                          onCommit={(v) =>
-                            updateItem(item.id, { startMonth: Math.round(v) }, `${item.label} starts month ${Math.round(v)}`)
+                        <input
+                          aria-label={`Name of ${item.label}`}
+                          className="row-label min-w-0 border-b border-transparent bg-transparent outline-none focus:border-[var(--ink)]"
+                          value={item.label}
+                          onChange={(e) =>
+                            setConfig({
+                              ...config,
+                              items: config.items.map((i) =>
+                                i.id === item.id ? { ...i, label: e.target.value } : i,
+                              ),
+                            })
+                          }
+                          onBlur={(e) =>
+                            updateItem(
+                              item.id,
+                              { label: e.target.value },
+                              `Renamed to ${e.target.value}`,
+                            )
                           }
                         />
-                      </label>
-                    </div>
 
-                    {item.note && (
-                      <p className="tint-muted mt-1 text-[0.72rem] italic">{item.note}</p>
-                    )}
-                  </div>
-                ))}
+                        <AmountField
+                          label={`Amount for ${item.label}`}
+                          value={item.amount}
+                          onCommit={(v) =>
+                            updateItem(item.id, { amount: v }, `${item.label} set to ${php(v)}`)
+                          }
+                        />
+                      </div>
+
+                      {item.note && !open && (
+                        <p className="row-meta -mt-1 mb-2 pl-[61px]">{item.note}</p>
+                      )}
+
+                      {open && (
+                        <div className="mb-3 flex flex-wrap items-center gap-1.5 pl-[61px]">
+                          {PAYERS.map((p) => (
+                            <button
+                              key={p}
+                              type="button"
+                              className="chip chip--marker"
+                              data-on={item.payer === p}
+                              aria-pressed={item.payer === p}
+                              onClick={() =>
+                                updateItem(
+                                  item.id,
+                                  { payer: p },
+                                  `${item.label}: ${PAYER_DESCRIPTION[p]}`,
+                                )
+                              }
+                            >
+                              {PAYER_DESCRIPTION[p]}
+                            </button>
+                          ))}
+                          <button
+                            type="button"
+                            className="chip"
+                            onClick={() =>
+                              updateItem(
+                                item.id,
+                                { cadence: item.cadence === 'monthly' ? 'onetime' : 'monthly' },
+                                `${item.label} is now ${
+                                  item.cadence === 'monthly' ? 'one-time' : 'monthly'
+                                }`,
+                              )
+                            }
+                          >
+                            {item.cadence === 'monthly' ? 'monthly' : 'one-time'}
+                          </button>
+                          <span className="chip flex items-center gap-1">
+                            <span>from month</span>
+                            <AmountField
+                              label={`Start month for ${item.label}`}
+                              prefix=""
+                              width="1.6rem"
+                              value={item.startMonth}
+                              onCommit={(v) =>
+                                updateItem(
+                                  item.id,
+                                  { startMonth: Math.round(v) },
+                                  `${item.label} starts month ${Math.round(v)}`,
+                                )
+                              }
+                            />
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => deleteItem(item)}
+                            className="chip tint-brick"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+
+                <button type="button" onClick={() => addItem(s.cadence)} className="btn btn--dashed mt-2">
+                  + one more
+                </button>
               </section>
             );
           })}
 
-          {/* Money in */}
-          <section className="px-5 pt-8">
-            <h2 className="stamp mb-1">Money in</h2>
+          {/* Food is computed from the day types, so it is shown but never edited here. */}
+          {forecast && (
+            <section>
+              <div className="leader mt-7 mb-1">
+                <h2 className="sign-label tint-teal">Food</h2>
+                <span className="leader-fill" aria-hidden />
+                <span className="num text-[13px]">{php(forecast.perMonth)}</span>
+              </div>
+              <div className="row">
+                <PayerTag payer="split" />
+                <span className="row-label">
+                  Meals and extras
+                  <span className="row-meta block">edited on the Food screen</span>
+                </span>
+                <span className="marker tint-gold text-[17px]">derived</span>
+              </div>
+            </section>
+          )}
+
+          <section className="pb-8">
+            <div className="leader mt-7 mb-1">
+              <h2 className="sign-label tint-teal">Money in</h2>
+              <span className="leader-fill" aria-hidden />
+              <span className="num text-[13px]">
+                {php(config.moneyIn.reduce((s, m) => s + m.amount, 0))}
+              </span>
+            </div>
+
             {config.moneyIn.map((m) => (
-              <div key={m.id} className="rule-dashed py-2 first:border-t-0">
-                <div className="leader">
-                  <span className="text-[0.88rem]">
+              <div key={m.id}>
+                <div className="row">
+                  <PayerTag payer={m.owner} />
+                  <span className="row-label">
                     {m.label}
-                    {m.uncertain && <span className="tint-gold"> · uncertain</span>}
-                    {m.backup && <span className="tint-muted"> · backup</span>}
+                    {m.note && <span className="row-meta block">{m.note}</span>}
                   </span>
-                  <span className="leader-fill" aria-hidden />
+                  {m.uncertain && <span className="stamp stamp--gold">Uncertain</span>}
+                  {m.backup && <span className="stamp stamp--muted">Backup</span>}
                   <AmountField
                     label={`Amount for ${m.label}`}
                     value={m.amount}
@@ -247,9 +312,12 @@ export default function LedgerPage() {
                     }
                   />
                 </div>
-                {m.note && <p className="tint-muted mt-0.5 text-[0.72rem] italic">{m.note}</p>}
               </div>
             ))}
+
+            <Aside tilt={-1.5} className="mt-3">
+              tap a name to change who pays
+            </Aside>
           </section>
         </>
       )}

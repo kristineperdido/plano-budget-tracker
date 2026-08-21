@@ -1,33 +1,58 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { addDays, relativeDate } from '@/lib/date';
-import { CATEGORIES, CATEGORY_LABEL, type Category } from '@/lib/types';
+import { php } from '@/lib/model';
+import { type FoodConfig } from '@/lib/config';
+import { Aside } from '@/components/Screen';
+import { PersonTag } from '@/components/Payer';
+import { useSession } from '@/components/AuthGate';
+import { fetchMembers, type Member } from '@/lib/members';
+import type { Category } from '@/lib/types';
 
+type NewEntry = { spent_on: string; category: Category; amount: number; note?: string };
+
+/**
+ * Logging opens day-type-first: one tap covers most nights. The itemise route
+ * is there for the odd day that does not fit a shape — a big grocery run, a
+ * split bill — and drops to per-category amounts instead.
+ */
 export function LogSheet({
   today,
+  food,
+  buffer,
   onClose,
   onSave,
 }: {
   today: string;
+  food: FoodConfig;
+  /** What is left in the month's buffer, so the sheet can warn before it tips. */
+  buffer: number;
   onClose: () => void;
-  onSave: (v: {
-    spent_on: string;
-    category: Category;
-    amount: number;
-    note?: string;
-  }) => Promise<void>;
+  onSave: (rows: NewEntry[]) => Promise<void>;
 }) {
-  const [category, setCategory] = useState<Category>('eatout');
-  const [amount, setAmount] = useState('');
-  const [note, setNote] = useState('');
+  const [mode, setMode] = useState<'day' | 'items'>('day');
+  const [dayTypeId, setDayTypeId] = useState<string | null>(null);
+  const [extraIds, setExtraIds] = useState<string[]>([]);
   const [day, setDay] = useState(today);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const amountRef = useRef<HTMLInputElement>(null);
+  const [members, setMembers] = useState<Member[]>([]);
+  const session = useSession();
+
+  // Itemised mode.
+  const [category, setCategory] = useState<Category>(food.categories[0]?.id ?? 'meals');
+  const [amount, setAmount] = useState('');
+  const [note, setNote] = useState('');
 
   useEffect(() => {
-    amountRef.current?.focus();
+    let cancelled = false;
+    fetchMembers().then((m) => {
+      if (!cancelled) setMembers(m);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -38,16 +63,43 @@ export function LogSheet({
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
 
-  const value = Number(amount);
-  const valid = amount.trim() !== '' && Number.isFinite(value) && value >= 0;
+  const dayType = food.dayTypes.find((t) => t.id === dayTypeId) ?? null;
+  const chosenExtras = food.extras.filter((e) => extraIds.includes(e.id));
+
+  const dayRows = useMemo<NewEntry[]>(() => {
+    if (!dayType) return [];
+    const known = new Set(food.categories.map((c) => c.id));
+    return [
+      { spent_on: day, category: 'meals', amount: dayType.amount, note: dayType.label },
+      ...chosenExtras.map((e) => ({
+        spent_on: day,
+        // An extra files under its own category when one exists, so the ledger
+        // keeps coffee separate from meals rather than blurring them together.
+        category: known.has(e.id) ? e.id : 'extras',
+        amount: e.cost,
+        note: known.has(e.id) ? undefined : e.label,
+      })),
+    ];
+  }, [dayType, chosenExtras, day, food.categories]);
+
+  const itemValue = Number(amount);
+  const itemValid = amount.trim() !== '' && Number.isFinite(itemValue) && itemValue >= 0;
+  const total =
+    mode === 'day' ? dayRows.reduce((s, r) => s + r.amount, 0) : itemValid ? itemValue : 0;
+  const canSave = mode === 'day' ? dayRows.length > 0 : itemValid;
+  const overBy = total - buffer;
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (!valid || saving) return;
+    if (!canSave || saving) return;
     setSaving(true);
     setError(null);
     try {
-      await onSave({ spent_on: day, category, amount: value, note });
+      await onSave(
+        mode === 'day'
+          ? dayRows
+          : [{ spent_on: day, category, amount: itemValue, note: note || undefined }],
+      );
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not save.');
@@ -58,115 +110,176 @@ export function LogSheet({
   const dayOptions = [today, addDays(today, -1), addDays(today, -2)];
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-end justify-center"
-      style={{ background: 'rgb(36 30 21 / 0.35)' }}
-      onClick={onClose}
-      role="dialog"
-      aria-modal="true"
-      aria-label="Log an entry"
-    >
-      <form
-        onSubmit={submit}
-        onClick={(e) => e.stopPropagation()}
-        className="sheet w-full max-w-md rounded-t-md px-5 pb-8 pt-5"
-        style={{ paddingBottom: 'calc(2rem + env(safe-area-inset-bottom))' }}
-      >
-        <h2 className="serif mb-4 text-center text-[1.05rem]">Log an entry</h2>
+    <>
+      <button type="button" className="scrim" aria-label="Close" onClick={onClose} />
+      <form className="sheet" onSubmit={submit} role="dialog" aria-modal="true" aria-label="Log a day">
+        <span className="tape" style={{ left: 30 }} aria-hidden />
+        <span className="tape tape-r" style={{ right: 34 }} aria-hidden />
 
-        {/* Category */}
-        <div className="mb-4 flex gap-2">
-          {CATEGORIES.map((c) => (
-            <button
-              key={c}
-              type="button"
-              onClick={() => setCategory(c)}
-              aria-pressed={category === c}
-              className="flex-1 rounded-[2px] border py-2 text-[0.82rem] transition-colors"
-              style={{
-                borderColor: category === c ? 'var(--ink)' : 'var(--rule)',
-                background: category === c ? 'var(--ink)' : 'transparent',
-                color: category === c ? 'var(--paper-light)' : 'var(--charcoal)',
-              }}
-            >
-              {CATEGORY_LABEL[c]}
-            </button>
-          ))}
+        <div className="mb-1 flex items-baseline justify-between">
+          <h2 className="sign text-[17px]">
+            {mode === 'day' ? 'What kind of day?' : 'Itemise'}
+          </h2>
+          <button type="button" onClick={onClose} className="tint-muted text-[12px] underline">
+            close
+          </button>
         </div>
 
-        {/* Amount */}
-        <label className="mb-4 block">
-          <span className="tint-muted text-[0.7rem] uppercase tracking-[0.18em]">
-            Amount
-          </span>
-          <div className="mt-1 flex items-baseline gap-2 border-b pb-1" style={{ borderColor: 'var(--rule)' }}>
-            <span className="num text-[1.6rem]">₱</span>
-            <input
-              ref={amountRef}
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              inputMode="decimal"
-              placeholder="0"
-              aria-label="Amount in pesos"
-              className="num w-full bg-transparent text-[1.6rem] outline-none"
-            />
-          </div>
-        </label>
+        {mode === 'day' ? (
+          <>
+            <Aside tilt={-1.5} className="mb-3 text-[17px]">
+              pick one, I&rsquo;ll fill the amount
+            </Aside>
 
-        {/* Note */}
-        <label className="mb-4 block">
-          <span className="tint-muted text-[0.7rem] uppercase tracking-[0.18em]">
-            Note <span className="normal-case tracking-normal">(optional)</span>
-          </span>
-          <input
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            placeholder="jollibee, 7-11 run…"
-            className="mt-1 w-full border-b bg-transparent pb-1 text-[0.95rem] outline-none"
-            style={{ borderColor: 'var(--rule)' }}
-          />
-        </label>
+            <div className="flex flex-col">
+              {food.dayTypes.map((t) => {
+                const on = t.id === dayTypeId;
+                return (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => setDayTypeId(on ? null : t.id)}
+                    aria-pressed={on}
+                    className="mb-1.5 flex items-center justify-between border px-3 py-3.5 text-left"
+                    style={{
+                      borderColor: on ? 'var(--ink)' : 'var(--rule)',
+                      background: on ? 'var(--ink)' : 'transparent',
+                      color: on ? 'var(--paper)' : 'var(--ink)',
+                    }}
+                  >
+                    <span className="text-[14px]">{t.label}</span>
+                    <span className="num text-[14px]">{php(t.amount)}</span>
+                  </button>
+                );
+              })}
+            </div>
 
-        {/* Day */}
-        <div className="mb-5 flex gap-2">
+            {food.extras.length > 0 && (
+              <div className="mt-3">
+                {food.extras.map((e) => {
+                  const on = extraIds.includes(e.id);
+                  return (
+                    <div key={e.id} className="row">
+                      <span className="row-label">{e.label} today?</span>
+                      <button
+                        type="button"
+                        className="toggle"
+                        data-on={on}
+                        aria-pressed={on}
+                        aria-label={`${e.label} today`}
+                        onClick={() =>
+                          setExtraIds((prev) =>
+                            on ? prev.filter((x) => x !== e.id) : [...prev, e.id],
+                          )
+                        }
+                      >
+                        <span className="toggle-knob" />
+                      </button>
+                      <span className="num tint-muted w-[54px] text-right text-[13px]">
+                        +{php(e.cost)}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </>
+        ) : (
+          <>
+            <div className="mb-4 flex flex-wrap gap-1.5">
+              {food.categories.map((c) => (
+                <button
+                  key={c.id}
+                  type="button"
+                  className="chip"
+                  data-on={category === c.id}
+                  aria-pressed={category === c.id}
+                  onClick={() => setCategory(c.id)}
+                >
+                  {c.label}
+                </button>
+              ))}
+            </div>
+
+            <label className="mb-4 block">
+              <span className="sign-label tint-teal">Amount</span>
+              <span
+                className="mt-1 flex items-baseline gap-2 border-b pb-1"
+                style={{ borderColor: 'var(--rule)' }}
+              >
+                <span className="num text-[26px]">₱</span>
+                <input
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  inputMode="decimal"
+                  placeholder="0"
+                  autoFocus
+                  aria-label="Amount in pesos"
+                  className="num w-full bg-transparent text-[26px] outline-none"
+                />
+              </span>
+            </label>
+
+            <label className="mb-4 block">
+              <span className="sign-label tint-teal">Note</span>
+              <input
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                placeholder="optional"
+                className="field-text mt-1"
+              />
+            </label>
+          </>
+        )}
+
+        <div className="mt-4 flex gap-1.5">
           {dayOptions.map((d) => (
             <button
               key={d}
               type="button"
-              onClick={() => setDay(d)}
+              className="chip flex-1"
+              data-on={day === d}
               aria-pressed={day === d}
-              className="flex-1 rounded-[2px] border py-1.5 text-[0.75rem]"
-              style={{
-                borderColor: day === d ? 'var(--ink)' : 'var(--rule)',
-                color: day === d ? 'var(--ink)' : 'var(--charcoal)',
-              }}
+              onClick={() => setDay(d)}
             >
               {relativeDate(d, today)}
             </button>
           ))}
         </div>
 
-        {error && <p className="tint-brick mb-3 text-[0.8rem]">{error}</p>}
+        <div className="mt-5 flex items-baseline justify-between">
+          <span className="sign-label tint-teal">Logging</span>
+          <span className="num text-[29px]">{php(total)}</span>
+        </div>
 
-        <div className="flex gap-3">
-          <button
-            type="button"
-            onClick={onClose}
-            className="tint-muted flex-1 rounded-[2px] border py-3 text-[0.9rem]"
-            style={{ borderColor: 'var(--rule)' }}
-          >
-            Cancel
+        {/* Attribution is set by the database from the signed-in address, so it
+            is reported here rather than offered as a choice. */}
+        <div className="mt-1 flex items-center gap-2">
+          <span className="tint-muted text-[11.5px]">logged by</span>
+          <PersonTag person={session.user.email ?? null} me={session.user.email} members={members} />
+        </div>
+
+        {overBy > 0 && total > 0 && (
+          <Aside tilt={-2} tint="brick" className="mt-2 text-[18px]">
+            {php(overBy)} past the buffer
+          </Aside>
+        )}
+
+        {error && <p className="tint-brick mt-3 text-[12.5px]">{error}</p>}
+
+        <div className="mt-5 flex gap-2.5">
+          <button type="submit" disabled={!canSave || saving} className="btn btn--primary flex-[2]">
+            {saving ? 'Saving…' : mode === 'day' ? 'Log the day' : 'Log it'}
           </button>
           <button
-            type="submit"
-            disabled={!valid || saving}
-            className="flex-[2] rounded-[2px] py-3 text-[0.9rem] disabled:opacity-40"
-            style={{ background: 'var(--ink)', color: 'var(--paper-light)' }}
+            type="button"
+            className="btn btn--ghost flex-1"
+            onClick={() => setMode((m) => (m === 'day' ? 'items' : 'day'))}
           >
-            {saving ? 'Saving…' : 'Log it'}
+            {mode === 'day' ? 'Itemise' : 'Back'}
           </button>
         </div>
       </form>
-    </div>
+    </>
   );
 }

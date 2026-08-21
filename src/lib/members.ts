@@ -10,14 +10,18 @@ export async function fetchMembers(): Promise<Member[]> {
   return data as Member[];
 }
 
-/** "You" for your own entries, otherwise the roster label, else the local part. */
+/**
+ * "you" for your own entries, otherwise the roster label, else the local part.
+ * Lowercase throughout: these render in marker beside a shape mark, as a note
+ * rather than a title.
+ */
 export function personLabel(
   person: string | null,
   me: string | undefined,
   members: Member[],
 ): string | null {
   if (!person) return null;
-  if (me && person.toLowerCase() === me.toLowerCase()) return 'You';
+  if (me && person.toLowerCase() === me.toLowerCase()) return 'you';
   const match = members.find((m) => m.email.toLowerCase() === person.toLowerCase());
-  return match?.label ?? person.split('@')[0];
+  return (match?.label ?? person.split('@')[0]).toLowerCase();
 }

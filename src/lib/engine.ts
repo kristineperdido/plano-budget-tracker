@@ -1,20 +1,45 @@
 import type { Config, FoodConfig, LineItem, Payer, Phase } from './config';
 
-/** Weighted meal cost per day, with coffee as an independent layer on top. */
+export type ExtraForecast = {
+  id: string;
+  label: string;
+  cost: number;
+  perWeek: number;
+  perDay: number;
+  perMonth: number;
+  /** What dropping one run a week frees up per month. */
+  perSkippedRun: number;
+};
+
+/**
+ * Weighted meal cost per day, with every recurring extra as an independent
+ * layer on top. Day types are averaged by how often each kind of day happens;
+ * extras are averaged over the full week regardless of day type.
+ */
 export function foodForecast(food: FoodConfig) {
   const weeks = food.dayTypes.reduce((s, t) => s + t.perWeek, 0);
   const foodPerDay = weeks
     ? food.dayTypes.reduce((s, t) => s + t.amount * t.perWeek, 0) / weeks
     : 0;
-  const coffeePerDay = (food.coffee.cost * food.coffee.perWeek) / 7;
+
+  const extras: ExtraForecast[] = food.extras.map((e) => {
+    const perDay = (e.cost * e.perWeek) / 7;
+    return {
+      ...e,
+      perDay,
+      perMonth: perDay * food.daysPerMonth,
+      perSkippedRun: (e.cost / 7) * food.daysPerMonth,
+    };
+  });
+  const extrasPerDay = extras.reduce((s, e) => s + e.perDay, 0);
+
   return {
     foodPerDay,
-    coffeePerDay,
-    perDay: foodPerDay + coffeePerDay,
-    perMonth: (foodPerDay + coffeePerDay) * food.daysPerMonth,
+    extras,
+    extrasPerDay,
+    perDay: foodPerDay + extrasPerDay,
+    perMonth: (foodPerDay + extrasPerDay) * food.daysPerMonth,
     budgetPerMonth: food.dailyBudget * food.daysPerMonth,
-    /** What dropping one weekly coffee run frees up per month. */
-    perSkippedCoffeeRun: (food.coffee.cost / 7) * food.daysPerMonth,
   };
 }
 

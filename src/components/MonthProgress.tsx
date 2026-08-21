@@ -1,53 +1,54 @@
-import { monthNameOf } from '@/lib/date';
-import { php, type TodayStats } from '@/lib/model';
+'use client';
 
+import { php, type TodayStats } from '@/lib/model';
+import { monthNameOf } from '@/lib/date';
+import { Aside } from '@/components/Screen';
+
+/**
+ * The month at a glance: the fill is what has been spent, the upright rule is
+ * where the month actually is. Fill past the rule means spending is ahead of
+ * the calendar, and the bar turns brick to say so.
+ */
 export function MonthProgress({ s, today }: { s: TodayStats; today: string }) {
   const over = s.spentMonth > s.accrued;
+  const gap = Math.abs(s.buffer);
 
   return (
-    <section className="px-5 pb-5">
+    <div className="panel">
+      <span className="tape" style={{ left: 22 }} aria-hidden />
+
       <div className="leader mb-2">
-        <span className="text-[0.7rem] uppercase tracking-[0.18em]">
-          {monthNameOf(today)}
-        </span>
+        <h2 className="sign-label tint-teal">{monthNameOf(today)}</h2>
         <span className="leader-fill" aria-hidden />
-        <span className="num text-[0.78rem]">
-          {php(s.spentMonth)} / {php(s.monthlyBudget)}
+        <span className="num text-[13px]">
+          {php(s.spentMonth)} <span className="tint-muted">/ {php(s.monthlyBudget)}</span>
         </span>
       </div>
 
-      <div
-        className="relative h-2.5 w-full overflow-hidden rounded-[1px]"
-        style={{ background: 'var(--rule)' }}
-        role="progressbar"
-        aria-valuemin={0}
-        aria-valuemax={s.monthlyBudget}
-        aria-valuenow={Math.round(s.spentMonth)}
-        aria-label={`Spent ${php(s.spentMonth)} of ${php(s.monthlyBudget)} this month`}
-      >
+      <div className="pace">
         <div
-          className="h-full transition-[width] duration-500"
-          style={{
-            width: `${s.monthProgress * 100}%`,
-            background: over ? 'var(--brick)' : 'var(--green)',
-          }}
+          className={`pace-fill ${over ? 'pace-fill--over' : ''}`}
+          style={{ width: `${s.monthProgress * 100}%` }}
         />
-        {/* Pace marker: where the month should be by today. */}
-        <div
-          className="absolute top-0 h-full w-px"
-          style={{ left: `${s.paceProgress * 100}%`, background: 'var(--ink)' }}
-          aria-hidden
-        />
+        <div className="pace-marker" style={{ left: `${s.paceProgress * 100}%` }} />
       </div>
 
-      <div className="tint-muted mt-1.5 flex justify-between text-[0.7rem]">
-        <span>
-          Day {s.daysElapsed} of {s.daysInMonth}
+      <div className="mt-2 flex items-baseline justify-between gap-3">
+        <span className="tint-muted text-[11px]">
+          day {s.daysElapsed} of {s.daysInMonth}
         </span>
-        <span className="num">
-          Pace → {php(s.projectedMonth)}
-        </span>
+        {/* The projected figure stays available as the aria label; the aside is the
+            same fact in plainer words. */}
+        <Aside
+          tilt={2.5}
+          tint={over ? 'brick' : 'green'}
+          className="text-right"
+        >
+          <span title={`Projected month-end ${php(s.projectedMonth)}`}>
+            {over ? `${php(gap)} over` : 'on pace'}
+          </span>
+        </Aside>
       </div>
-    </section>
+    </div>
   );
 }

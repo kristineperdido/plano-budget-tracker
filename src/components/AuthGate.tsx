@@ -68,27 +68,22 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
           : 'not-member';
 
   if (status === 'loading') {
-    return (
-      <p className="tint-muted serif px-5 py-20 text-center text-[0.9rem] italic">
-        Opening the ledger…
-      </p>
-    );
+    return <p className="empty px-5 py-20 text-center">opening the ledger…</p>;
   }
 
   if (status === 'signed-out') return <SignIn linkError={linkError} />;
 
   if (status === 'not-member') {
     return (
-      <div className="mx-auto max-w-md px-5 py-20 text-center">
-        <h1 className="serif text-[1.15rem]">Not on this ledger</h1>
-        <p className="tint-muted mt-3 text-[0.85rem]">
+      <div className="mx-auto max-w-md px-6 py-20 text-center">
+        <h1 className="sign text-[19px]">Not on this ledger</h1>
+        <p className="tint-muted mt-3 text-[13px]">
           {session?.user.email} isn&apos;t one of the accounts on this budget.
         </p>
         <button
           type="button"
           onClick={() => void supabase.auth.signOut()}
-          className="mt-6 rounded-[2px] border px-4 py-2 text-[0.85rem]"
-          style={{ borderColor: 'var(--rule)' }}
+          className="btn btn--ghost mt-6"
         >
           Sign out
         </button>
@@ -101,6 +96,10 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   );
 }
 
+/**
+ * The one screen that inverts: dark ground, rolled shutter, and the form laid
+ * on it as a slab of the same ruled paper the rest of the app is printed on.
+ */
 function SignIn({ linkError }: { linkError: string | null }) {
   const [email, setEmail] = useState('');
   const [sent, setSent] = useState(false);
@@ -122,70 +121,96 @@ function SignIn({ linkError }: { linkError: string | null }) {
   }
 
   return (
-    <main className="mx-auto flex min-h-dvh max-w-md flex-col justify-center px-6">
-      <h1 className="serif text-center text-[1.6rem]">Plano</h1>
-      <p className="tint-muted serif mt-1 text-center text-[0.85rem] italic">
-        A running tally, for the two of us.
-      </p>
+    <main
+      className="flex min-h-dvh flex-col"
+      style={{ background: 'var(--ink)', color: 'var(--paper)' }}
+    >
+      <div className="shutter h-[86px] w-full" aria-hidden />
 
-      {linkError && !sent && (
-        <p
-          className="tint-brick sheet mt-6 px-4 py-3 text-[0.82rem]"
-          role="alert"
+      <div className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center px-6 pb-16">
+        <h1
+          className="sign text-center"
+          style={{ fontSize: 54, lineHeight: 1, letterSpacing: '0.03em' }}
         >
-          That sign-in link didn&apos;t work: {linkError}. Links are single-use
-          and expire quickly — request a fresh one below.
+          Plano
+        </h1>
+        <div className="tarp-stripe mt-3" aria-hidden />
+        <p className="marker mt-3 text-center text-[21px]" style={{ color: 'var(--gold)' }}>
+          a running tally, for the two of us
         </p>
-      )}
 
-      {sent ? (
-        <div className="sheet mt-8 px-5 py-6 text-center">
-          <p className="text-[0.9rem]">Check your email.</p>
-          <p className="tint-muted mt-2 text-[0.82rem]">
-            Sign-in link sent to {email}. Open it on this device.
+        {linkError && !sent && (
+          <p
+            className="mt-6 border px-4 py-3 text-[12.5px]"
+            style={{ borderColor: 'var(--brick)', color: '#e8a394' }}
+            role="alert"
+          >
+            That sign-in link didn&apos;t work: {linkError}. Links are single-use and expire
+            quickly — request a fresh one below.
           </p>
-          <button
-            type="button"
-            onClick={() => setSent(false)}
-            className="tint-muted mt-4 text-[0.78rem] underline"
-          >
-            Use a different address
-          </button>
-        </div>
-      ) : (
-        <form onSubmit={submit} className="sheet mt-8 px-5 py-6">
-          <label className="block">
-            <span className="tint-muted text-[0.7rem] uppercase tracking-[0.18em]">
-              Email
-            </span>
-            <input
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              autoComplete="email"
-              placeholder="you@example.com"
-              className="mt-1 w-full border-b bg-transparent pb-1 text-[0.95rem] outline-none"
-              style={{ borderColor: 'var(--rule)' }}
-            />
-          </label>
+        )}
 
-          {error && (
-            <p className="tint-brick mt-3 text-[0.8rem]" role="alert">
-              {error}
+        {sent ? (
+          <div
+            className="paper mt-7 p-6 text-center"
+            style={{ color: 'var(--ink)', boxShadow: '0 6px 0 0 rgb(0 0 0 / 0.35)' }}
+          >
+            <p className="sign text-[15px]">Check your email</p>
+            <p className="tint-muted mt-2 text-[12.5px]">
+              Sign-in link sent to <span className="num">{email}</span>.
             </p>
-          )}
-
-          <button
-            type="submit"
-            disabled={busy}
-            className="mt-5 w-full rounded-[2px] py-3 text-[0.9rem] disabled:opacity-40"
-            style={{ background: 'var(--ink)', color: 'var(--paper-light)' }}
+            <p className="empty mt-3">open it on this phone</p>
+            <button
+              type="button"
+              onClick={() => setSent(false)}
+              className="tint-muted mt-4 text-[12px] underline"
+            >
+              Use a different address
+            </button>
+          </div>
+        ) : (
+          <form
+            onSubmit={submit}
+            className="paper mt-7 p-6"
+            style={{ color: 'var(--ink)', boxShadow: '0 6px 0 0 rgb(0 0 0 / 0.35)' }}
           >
-            {busy ? 'Sending…' : 'Email me a link'}
-          </button>
-        </form>
-      )}
+            <label className="block">
+              <span className="sign-label tint-teal">Email</span>
+              <input
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                autoComplete="email"
+                placeholder="you@example.com"
+                className="field-text mt-1.5"
+                style={{ textAlign: 'left' }}
+              />
+            </label>
+
+            {error && (
+              <p className="tint-brick mt-3 text-[12.5px]" role="alert">
+                {error}
+              </p>
+            )}
+
+            <button type="submit" disabled={busy} className="btn btn--primary mt-4">
+              {busy ? 'Sending…' : 'Email me a link'}
+            </button>
+
+            <p className="empty mt-3 text-center text-[17px]">
+              no passwords — and you have to be on the list
+            </p>
+          </form>
+        )}
+      </div>
+
+      <p
+        className="sign pb-8 text-center"
+        style={{ fontSize: 10, letterSpacing: '0.2em', color: 'var(--charcoal)' }}
+      >
+        Manila · PHP
+      </p>
     </main>
   );
 }

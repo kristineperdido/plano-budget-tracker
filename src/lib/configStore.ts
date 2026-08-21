@@ -1,6 +1,6 @@
 'use client';
 
-import { DEFAULT_CONFIG, type Config } from './config';
+import { DEFAULT_CONFIG, migrateFood, type Config, type LegacyFoodConfig } from './config';
 import { supabase } from './supabase';
 
 const ROW_ID = 'main';
@@ -35,7 +35,7 @@ function migrate(stored: Config): Config {
   return {
     ...DEFAULT_CONFIG,
     ...stored,
-    food: { ...DEFAULT_CONFIG.food, ...stored.food },
+    food: migrateFood(stored.food as LegacyFoodConfig | undefined),
     phases: stored.phases?.length ? stored.phases : DEFAULT_CONFIG.phases,
     items: stored.items?.length ? stored.items : DEFAULT_CONFIG.items,
     moneyIn: stored.moneyIn?.length ? stored.moneyIn : DEFAULT_CONFIG.moneyIn,

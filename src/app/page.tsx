@@ -6,11 +6,14 @@ import { EntryList } from '@/components/EntryList';
 import { LogSheet } from '@/components/LogSheet';
 import { MonthProgress } from '@/components/MonthProgress';
 import { RecentDays } from '@/components/RecentDays';
-import { addDays, monthStart, todayISO } from '@/lib/date';
+import { Screen } from '@/components/Screen';
+import { addDays, monthStart, todayISO, shortDate } from '@/lib/date';
 import { addEntry, deleteEntry, fetchEntries } from '@/lib/entries';
-import { byDay, computeToday } from '@/lib/model';
+import { byDay, computeToday, php2 } from '@/lib/model';
 import { supabase } from '@/lib/supabase';
 import { fetchMembers, type Member } from '@/lib/members';
+import { fetchConfig } from '@/lib/configStore';
+import { DEFAULT_CONFIG, type Config } from '@/lib/config';
 import { useSession } from '@/components/AuthGate';
 import type { FoodEntry } from '@/lib/types';
 
@@ -20,6 +23,7 @@ const RECENT_DAYS = 14;
 export default function TodayPage() {
   const [today, setToday] = useState(todayISO);
   const [entries, setEntries] = useState<FoodEntry[]>([]);
+  const [config, setConfig] = useState<Config | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -61,6 +65,23 @@ export default function TodayPage() {
     };
   }, [from, today, reloadKey]);
 
+  // The daily budget and the category list both live in the config blob.
+  useEffect(() => {
+    let cancelled = false;
+    fetchConfig().then(
+      (c) => {
+        if (!cancelled) setConfig(c);
+      },
+      () => {
+        // A missing config must not blank the screen; fall back to the defaults.
+        if (!cancelled) setConfig(DEFAULT_CONFIG);
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
     fetchMembers().then((m) => {
@@ -95,7 +116,11 @@ export default function TodayPage() {
     return () => clearInterval(id);
   }, []);
 
-  const stats = useMemo(() => computeToday(entries, today), [entries, today]);
+  const food = config?.food ?? DEFAULT_CONFIG.food;
+  const stats = useMemo(
+    () => computeToday(entries, today, food.dailyBudget),
+    [entries, today, food.dailyBudget],
+  );
   const todaysEntries = useMemo(
     () => entries.filter((e) => e.spent_on === today),
     [entries, today],
@@ -105,9 +130,11 @@ export default function TodayPage() {
     [entries, today],
   );
 
-  async function handleSave(v: Parameters<typeof addEntry>[0]) {
-    const saved = await addEntry(v);
-    setEntries((prev) => (prev.some((e) => e.id === saved.id) ? prev : [saved, ...prev]));
+  async function handleSave(rows: Parameters<typeof addEntry>[0][]) {
+    for (const row of rows) {
+      const saved = await addEntry(row);
+      setEntries((prev) => (prev.some((e) => e.id === saved.id) ? prev : [saved, ...prev]));
+    }
   }
 
   async function handleDelete(id: string) {
@@ -125,88 +152,67 @@ export default function TodayPage() {
   }
 
   return (
-    <main className="mx-auto min-h-dvh max-w-md pb-28">
-      <header className="flex items-baseline justify-between px-5 pt-6">
-        <h1 className="serif text-[1.15rem] tracking-wide">Plano</h1>
-        <div className="flex items-baseline gap-3">
-          <span className="tint-muted text-[0.7rem] uppercase tracking-[0.18em]">
-            Today
-          </span>
-          <button
-            type="button"
-            onClick={() => void supabase.auth.signOut()}
-            className="tint-muted text-[0.7rem] underline"
+    <>
+      <Screen title="Plano" meta={shortDate(today)}>
+        {error && (
+          <p
+            className="tint-brick mt-4 border px-3 py-2 text-[12.5px]"
+            style={{ borderColor: 'var(--brick)' }}
+            role="alert"
           >
-            Sign out
-          </button>
-        </div>
-      </header>
+            {error}
+          </p>
+        )}
 
-      {error && (
-        <p
-          className="tint-brick mx-5 mt-4 border px-3 py-2 text-[0.8rem]"
-          style={{ borderColor: 'var(--brick)' }}
-          role="alert"
-        >
-          {error}
-        </p>
-      )}
+        {loading ? (
+          <p className="empty py-16 text-center">reading the ledger…</p>
+        ) : (
+          <>
+            <BufferHeadline s={stats} />
 
-      {loading ? (
-        <p className="tint-muted serif px-5 py-16 text-center text-[0.9rem] italic">
-          Reading the ledger…
-        </p>
-      ) : (
-        <>
-          <BufferHeadline s={stats} />
-
-          <div className="mx-5 perf" aria-hidden />
-
-          <MonthProgress s={stats} today={today} />
-
-          <section className="px-5 pb-6">
-            <h2 className="tint-muted mb-1 text-[0.7rem] uppercase tracking-[0.18em]">
-              Today
-            </h2>
-            <EntryList
-              entries={todaysEntries}
-              onDelete={handleDelete}
-              pendingDelete={pendingDelete}
-              me={session.user.email}
-              members={members}
-            />
-            <div className="rule-dashed mt-2 pt-2">
-              <div className="leader">
-                <span className="text-[0.85rem]">Total</span>
-                <span className="leader-fill" aria-hidden />
-                <span className="num text-[0.85rem]">
-                  ₱{stats.spentToday.toFixed(2)}
-                </span>
-              </div>
+            <div className="-mx-1.5 mb-4">
+              <MonthProgress s={stats} today={today} />
             </div>
-          </section>
 
-          <RecentDays days={recent} today={today} />
-        </>
-      )}
+            <section>
+              <div className="leader mb-1.5">
+                <h2 className="sign-label tint-teal">Today</h2>
+                <span className="leader-fill" aria-hidden />
+                <span className="num text-[14px]">{php2(stats.spentToday)}</span>
+              </div>
+              <EntryList
+                entries={todaysEntries}
+                categories={food.categories}
+                onDelete={handleDelete}
+                pendingDelete={pendingDelete}
+                me={session.user.email}
+                members={members}
+              />
+            </section>
+
+            <RecentDays days={recent} today={today} dailyBudget={food.dailyBudget} />
+          </>
+        )}
+      </Screen>
 
       <button
         type="button"
         onClick={() => setSheetOpen(true)}
-        aria-label="Log an entry"
-        className="fixed bottom-6 left-1/2 z-40 h-14 w-14 -translate-x-1/2 rounded-full text-[1.6rem] leading-none shadow-lg"
-        style={{
-          background: 'var(--ink)',
-          color: 'var(--paper-light)',
-          bottom: 'calc(1.5rem + env(safe-area-inset-bottom))',
-        }}
+        aria-label="Log a day"
+        className="fab"
       >
         +
       </button>
 
       {sheetOpen && (
-        <LogSheet today={today} onClose={() => setSheetOpen(false)} onSave={handleSave} />
+        <LogSheet
+          today={today}
+          food={food}
+          buffer={stats.buffer}
+          onClose={() => setSheetOpen(false)}
+          onSave={handleSave}
+        />
       )}
-    </main>
+    </>
   );
 }
