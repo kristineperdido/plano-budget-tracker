@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AmountField } from '@/components/AmountField';
-import { Screen, Aside } from '@/components/Screen';
+import { Screen, Card, Hero, Aside } from '@/components/Screen';
 import { Tally } from '@/components/Tally';
 import type { Config, DayType, Extra } from '@/lib/config';
 import { fetchConfig, logChange, saveConfig } from '@/lib/configStore';
@@ -99,6 +99,7 @@ export default function FoodPage() {
         <p className="empty py-16 text-center">working the numbers…</p>
       ) : (
         <>
+          <Hero>
           <section className="relative pt-5 pb-3 text-center">
             <p className="sign-label tint-teal" style={{ letterSpacing: '0.2em' }}>
               Forecast per day
@@ -120,6 +121,7 @@ export default function FoodPage() {
               {php(f.perMonth)}/mo vs {php(f.budgetPerMonth)}
             </p>
           </section>
+          </Hero>
 
           {/* The week, as it is actually lived. */}
           <div className="panel mt-3">
@@ -193,17 +195,15 @@ export default function FoodPage() {
           </div>
 
           {/* Extras are an independent layer, not a kind of day. */}
-          <section className="pb-8">
-            <div className="leader mt-7 mb-1">
-              <h2 className="sign-label tint-teal">Extras — separate</h2>
-              <span className="leader-fill" aria-hidden />
-              <span className="num text-[13px]">{php(f.extrasPerDay)}/day</span>
-            </div>
-
+          <Card title="Extras — separate" amount={`${php(f.extrasPerDay)}/day`} className="mb-8">
             {f.extras.length === 0 && <p className="empty py-3">no extras on top</p>}
 
             {f.extras.map((e) => (
-              <div key={e.id} className="panel mb-2.5">
+              <div
+                key={e.id}
+                className="mb-2.5 border p-3"
+                style={{ borderColor: 'var(--rule)' }}
+              >
                 <div className="flex items-center gap-2">
                   <input
                     aria-label={`Name of ${e.label}`}
@@ -314,7 +314,7 @@ export default function FoodPage() {
                 allowance
               </Aside>
             )}
-          </section>
+          </Card>
         </>
       )}
     </Screen>

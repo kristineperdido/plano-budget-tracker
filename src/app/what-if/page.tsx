@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Screen, Aside } from '@/components/Screen';
+import { Screen, Card, Aside } from '@/components/Screen';
 import { Signed } from '@/components/Money';
 import { PayerMark } from '@/components/Payer';
 import type { Config } from '@/lib/config';
@@ -131,15 +131,16 @@ export default function WhatIfPage() {
         <p className="empty py-16 text-center">working the numbers…</p>
       ) : (
         <>
-          <Aside tilt={-2.5} className="mt-2 text-[25px]">
-            Drag freely.
-            <br />
-            Nothing breaks.
-          </Aside>
-          <p className="tint-muted mt-2 mb-5 text-[12.5px]">
-            Nothing saves until you tap Apply.
-          </p>
+          <Card>
+            <Aside tilt={-2.5} className="text-[25px]">
+              Drag freely.
+              <br />
+              Nothing breaks.
+            </Aside>
+            <p className="tint-muted mt-2 text-[12.5px]">Nothing saves until you tap Apply.</p>
+          </Card>
 
+          <Card>
           <Slider
             label="Food per day"
             value={knobs.foodPerDay}
@@ -176,8 +177,9 @@ export default function WhatIfPage() {
             format={(v) => `${v}`}
             onChange={(v) => setKnobs({ ...knobs, gapMonths: v })}
           />
+          </Card>
 
-          <div className="panel mt-6">
+          <div className="panel mt-4">
             <span className="tape tape-r" style={{ right: 24 }} aria-hidden />
             <div className="flex gap-3">
               <Net label="tin" shape="solid" value={preview.net.her} was={baseline.net.her} />
@@ -209,7 +211,7 @@ export default function WhatIfPage() {
             </div>
           </div>
 
-          <div className="mt-5 mb-8 flex gap-2.5">
+          <div className="mt-4 mb-8 flex gap-2.5">
             <button
               type="button"
               className="btn btn--primary flex-[2]"

@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Screen, SectionLabel, Aside } from '@/components/Screen';
+import { Screen, Card, Aside } from '@/components/Screen';
 import { AmountField } from '@/components/AmountField';
 import { PayerTag, PersonTag } from '@/components/Payer';
 import type { CategoryDef, Config, Phase } from '@/lib/config';
@@ -123,8 +123,7 @@ export default function SettingsPage() {
         <p className="empty py-16 text-center">reading the ledger…</p>
       ) : (
         <>
-          <section>
-            <SectionLabel>Who&rsquo;s in</SectionLabel>
+          <Card title="Who&rsquo;s in">
             {members.map((m) => (
               <div key={m.email} className="row">
                 <PersonTag person={m.email} me={session.user.email} members={members} />
@@ -139,10 +138,9 @@ export default function SettingsPage() {
             <Aside tilt={-1.5} className="mt-2">
               only these addresses can sign in — add one in Supabase
             </Aside>
-          </section>
+          </Card>
 
-          <section>
-            <SectionLabel>The goal</SectionLabel>
+          <Card title="The goal">
             <div className="row">
               <span className="row-label">
                 What you&rsquo;re saving for
@@ -186,10 +184,9 @@ export default function SettingsPage() {
             <Aside tilt={-1.5} className="mt-2">
               money only lands in savings when someone taps to bank it
             </Aside>
-          </section>
+          </Card>
 
-          <section>
-            <SectionLabel>Sharing</SectionLabel>
+          <Card title="Sharing">
             <div className="row">
               <span className="row-label">
                 Default for a new log
@@ -219,10 +216,9 @@ export default function SettingsPage() {
                 ? 'new purchases start as 50/50'
                 : 'new purchases start as nobody owing anything'}
             </Aside>
-          </section>
+          </Card>
 
-          <section>
-            <SectionLabel>The basics</SectionLabel>
+          <Card title="The basics">
             <div className="row">
               <span className="row-label">
                 Daily food allowance
@@ -260,12 +256,15 @@ export default function SettingsPage() {
             <Aside tilt={-1.5} className="mt-2">
               a day rolls over at midnight in Manila, wherever the phone thinks it is
             </Aside>
-          </section>
+          </Card>
 
-          <section>
-            <SectionLabel amount={`${months} months`}>Phases</SectionLabel>
+          <Card title="Phases" amount={`${months} months`}>
             {config.phases.map((p) => (
-              <div key={p.id} className="panel mb-2.5">
+              <div
+                key={p.id}
+                className="mb-2.5 border p-3"
+                style={{ borderColor: 'var(--rule)' }}
+              >
                 <div className="flex items-center gap-2">
                   <input
                     aria-label={`Name of ${p.label}`}
@@ -387,11 +386,14 @@ export default function SettingsPage() {
             >
               + one more phase
             </button>
-          </section>
+          </Card>
 
           {/* Categories are the thing that used to need a migration to change. */}
-          <section className="pb-8">
-            <SectionLabel amount={`${config.food.categories.length}`}>Categories</SectionLabel>
+          <Card
+            title="Categories"
+            amount={`${config.food.categories.length}`}
+            className="mb-8"
+          >
             <p className="tint-muted mb-2 text-[12.5px]">
               What a logged entry can be filed under. Removing one leaves entries already filed
               against it alone — they keep showing their old name.
@@ -438,7 +440,7 @@ export default function SettingsPage() {
                 Add
               </button>
             </div>
-          </section>
+          </Card>
 
           <button
             type="button"

@@ -6,7 +6,7 @@ import { EntryList } from '@/components/EntryList';
 import { LogSheet } from '@/components/LogSheet';
 import { MonthProgress } from '@/components/MonthProgress';
 import { RecentDays } from '@/components/RecentDays';
-import { Screen } from '@/components/Screen';
+import { Screen, Card, Hero } from '@/components/Screen';
 import { SettlementPanel } from '@/components/Settlement';
 import { SavingsStrip } from '@/components/SavingsStrip';
 import { addDays, monthStart, todayISO, shortDate } from '@/lib/date';
@@ -194,18 +194,15 @@ export default function TodayPage() {
           <p className="empty py-16 text-center">reading the ledger…</p>
         ) : (
           <>
-            <BufferHeadline s={stats} />
+            <Hero>
+              <BufferHeadline s={stats} />
+            </Hero>
 
-            <div className="-mx-1.5 mb-4">
+            <div className="mt-4">
               <MonthProgress s={stats} today={today} />
             </div>
 
-            <section>
-              <div className="leader mb-1.5">
-                <h2 className="sign-label tint-teal">Today</h2>
-                <span className="leader-fill" aria-hidden />
-                <span className="num text-[14px]">{php2(stats.spentToday)}</span>
-              </div>
+            <Card title="Today" amount={php2(stats.spentToday)}>
               <EntryList
                 entries={todaysEntries}
                 categories={food.categories}
@@ -214,7 +211,7 @@ export default function TodayPage() {
                 me={session.user.email}
                 members={members}
               />
-            </section>
+            </Card>
 
             <SettlementPanel
               settlement={outstanding}

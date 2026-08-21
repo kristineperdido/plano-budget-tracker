@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Screen, Aside } from '@/components/Screen';
+import { Screen, Card, Aside } from '@/components/Screen';
 import { PersonTag } from '@/components/Payer';
 import { fetchChanges, type Change } from '@/lib/changelog';
 import { fetchMembers, type Member } from '@/lib/members';
@@ -53,12 +53,12 @@ export default function LogPage() {
       ) : changes.length === 0 ? (
         <p className="empty py-16 text-center">nothing changed yet</p>
       ) : (
-        <>
-          <Aside tilt={-1.5} className="mt-2 mb-3">
+        <Card className="mb-8">
+          <Aside tilt={-1.5} className="mb-2">
             every change, newest first — nothing here can be edited
           </Aside>
 
-          <ul className="pb-8">
+          <ul>
             {changes.map((c) => (
               <li key={c.id} className="row flex-wrap">
                 <span className="num tint-muted w-full text-[11.5px]">
@@ -71,7 +71,7 @@ export default function LogPage() {
               </li>
             ))}
           </ul>
-        </>
+        </Card>
       )}
     </Screen>
   );

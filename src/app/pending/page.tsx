@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Screen, Aside } from '@/components/Screen';
+import { Screen, Card, Aside } from '@/components/Screen';
 import { AmountField } from '@/components/AmountField';
 import { PayerTag } from '@/components/Payer';
 import type { Config, LineItem } from '@/lib/config';
@@ -75,23 +75,28 @@ export default function PendingPage() {
         <p className="empty py-16 text-center">reading the ledger…</p>
       ) : (
         <>
-          <Aside tilt={-1.5} className="mt-2 mb-4 text-[21px]">
-            Known, but not yet priced.
-            <br />
-            Left out of the plan on purpose.
-          </Aside>
+          <Card>
+            <Aside tilt={-1.5} className="text-[21px]">
+              Known, but not yet priced.
+              <br />
+              Left out of the plan on purpose.
+            </Aside>
+            <p className="tint-muted mt-2 text-[12.5px] leading-[1.5]">
+              Nothing on this page touches any total until you confirm it. That way the plan shows
+              what you actually know, rather than looking worse than reality because of a guess.
+            </p>
+          </Card>
 
-          <p className="tint-muted mb-4 text-[12.5px] leading-[1.5]">
-            Nothing on this page touches any total until you confirm it. That way the plan shows
-            what you actually know, rather than looking worse than reality because of a guess.
-          </p>
-
-          {pending.length === 0 && <p className="empty py-6">nothing outstanding</p>}
+          {pending.length === 0 && (
+            <Card>
+              <p className="empty py-2">nothing outstanding</p>
+            </Card>
+          )}
 
           {pending.map((item) => {
             const unknown = item.amount === 0 && item.estimateHigh === undefined;
             return (
-              <div key={item.id} className="panel mb-3">
+              <div key={item.id} className="panel mt-4">
                 <span className="tape" style={{ left: 20 }} aria-hidden />
 
                 <div className="mb-1.5 flex items-baseline justify-between gap-3">

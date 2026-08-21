@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Screen, SectionLabel, Aside } from '@/components/Screen';
+import { Screen, Card, Hero, Aside } from '@/components/Screen';
 import { PersonTag } from '@/components/Payer';
 import { useSession } from '@/components/AuthGate';
 import { fetchMembers, type Member } from '@/lib/members';
@@ -152,6 +152,7 @@ export default function SavingsPage() {
         <p className="empty py-16 text-center">counting what&rsquo;s put away…</p>
       ) : (
         <>
+          <Hero>
           <section className="pt-5 pb-2 text-center">
             <p className="sign-label tint-teal" style={{ letterSpacing: '0.2em' }}>
               Put away
@@ -173,10 +174,10 @@ export default function SavingsPage() {
               </>
             )}
           </section>
+          </Hero>
 
           {/* Banking is deliberate: the app never claims money moved on its own. */}
-          <section>
-            <SectionLabel>Ready to bank</SectionLabel>
+          <Card title="Ready to bank">
             {bankable.length === 0 ? (
               <p className="empty py-3">
                 {months.some((m) => !m.complete && m.surplus > 0)
@@ -185,7 +186,11 @@ export default function SavingsPage() {
               </p>
             ) : (
               bankable.map((m) => (
-                <div key={m.month} className="panel mb-2.5">
+                <div
+                  key={m.month}
+                  className="relative mb-2.5 border p-3"
+                  style={{ borderColor: 'var(--rule)' }}
+                >
                   <span className="tape" style={{ left: 22 }} aria-hidden />
                   <div className="leader mb-1.5">
                     <h3 className="sign-label">{m.month}</h3>
@@ -217,11 +222,10 @@ export default function SavingsPage() {
                 </div>
               ))
             )}
-          </section>
+          </Card>
 
           {/* Month history. */}
-          <section>
-            <SectionLabel>Month by month</SectionLabel>
+          <Card title="Month by month">
             {months.length === 0 ? (
               <p className="empty py-3">the plan hasn&rsquo;t started yet</p>
             ) : (
@@ -248,11 +252,10 @@ export default function SavingsPage() {
                 );
               })
             )}
-          </section>
+          </Card>
 
           {/* Anything that isn't a month-end sweep. */}
-          <section>
-            <SectionLabel>Move money by hand</SectionLabel>
+          <Card title="Move money by hand">
             <div className="flex gap-1.5">
               <button
                 type="button"
@@ -294,10 +297,9 @@ export default function SavingsPage() {
                 {busy === 'move' ? 'Saving…' : 'Record'}
               </button>
             </div>
-          </section>
+          </Card>
 
-          <section className="pb-8">
-            <SectionLabel amount={php(balance)}>The ledger</SectionLabel>
+          <Card title="The ledger" amount={php(balance)} className="mb-8">
             {savings.length === 0 ? (
               <p className="empty py-3">nothing put away yet</p>
             ) : (
@@ -340,7 +342,7 @@ export default function SavingsPage() {
                 </div>
               ))
             )}
-          </section>
+          </Card>
         </>
       )}
     </Screen>

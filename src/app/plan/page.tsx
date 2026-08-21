@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { Row, Signed } from '@/components/Money';
-import { Screen, SectionLabel, Aside } from '@/components/Screen';
+import { Screen, Card, Aside } from '@/components/Screen';
 import { PayerMark, PayerTag } from '@/components/Payer';
 import type { Config } from '@/lib/config';
 import { fetchConfig } from '@/lib/configStore';
@@ -84,8 +84,7 @@ export default function PlanPage() {
       ) : (
         <>
           {/* Phases as a strip of chips — the timeline is a first-class list. */}
-          <section>
-            <h2 className="sign-label tint-teal mb-2">Where you are</h2>
+          <Card title="Where you are">
             <div className="flex flex-wrap items-stretch gap-1.5">
               {config.phases.map((p) => {
                 const on = p.id === activePhaseId;
@@ -109,7 +108,7 @@ export default function PlanPage() {
                 ? `month ${currentMonth + 1} of ${months} — ${currentPhase.label.toLowerCase()}`
                 : `${months} months mapped, starting ${config.startMonth}`}
             </Aside>
-          </section>
+          </Card>
 
           {/* The score. */}
           <div className="panel mt-4">
@@ -138,7 +137,7 @@ export default function PlanPage() {
             )}
           </div>
 
-          <section className="mt-4 flex gap-2">
+          <div className="mt-4 flex gap-2">
             <button
               type="button"
               className="chip flex-1"
@@ -157,10 +156,9 @@ export default function PlanPage() {
             >
               Pending items {includePending ? 'on' : 'off'}
             </button>
-          </section>
+          </div>
 
-          <section>
-            <SectionLabel>Where it goes</SectionLabel>
+          <Card title="Where it goes">
             <Row
               mark={<PayerMark shape="solid" />}
               label="Tin's costs"
@@ -179,10 +177,9 @@ export default function PlanPage() {
             />
             <Row label="Tin's income + savings" amount={php(plan.income.her + plan.moneyIn.her)} />
             <Row label="Jhay's income" amount={php(plan.income.him + plan.moneyIn.him)} />
-          </section>
+          </Card>
 
-          <section className="pb-8">
-            <SectionLabel>Logged vs forecast</SectionLabel>
+          <Card title="Logged vs forecast" className="mb-8">
             {!pace ? (
               <p className="empty py-3">nothing logged yet — the forecast is still a guess</p>
             ) : (
@@ -208,7 +205,7 @@ export default function PlanPage() {
                 </p>
               </>
             )}
-          </section>
+          </Card>
         </>
       )}
     </Screen>

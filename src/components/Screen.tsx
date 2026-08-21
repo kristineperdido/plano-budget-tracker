@@ -30,19 +30,55 @@ export function Screen({
   );
 }
 
-/** A section heading: LABEL ————————— subtotal. */
-export function SectionLabel({
-  children,
+/**
+ * A block of content on its own opaque sheet. Everything textual goes in one of
+ * these, so the ruled ground shows in the gaps between them rather than through
+ * the words.
+ */
+export function Card({
+  title,
   amount,
+  tape,
+  children,
+  className = '',
 }: {
-  children: React.ReactNode;
+  title?: React.ReactNode;
   amount?: React.ReactNode;
+  /** A strip of masking tape. Sparingly — one per screen, two at most. */
+  tape?: 'left' | 'right';
+  children: React.ReactNode;
+  className?: string;
 }) {
   return (
-    <div className="leader mt-7 mb-1">
-      <h2 className="sign-label tint-teal">{children}</h2>
-      <span className="leader-fill" aria-hidden />
-      {amount && <span className="num text-[13px]">{amount}</span>}
+    <section className={`panel mt-4 ${className}`}>
+      {tape === 'left' && <span className="tape" style={{ left: 22 }} aria-hidden />}
+      {tape === 'right' && <span className="tape tape-r" style={{ right: 24 }} aria-hidden />}
+      {title && (
+        <div className="leader mb-1.5">
+          <h2 className="sign-label tint-teal">{title}</h2>
+          <span className="leader-fill" aria-hidden />
+          {amount && <span className="num text-[13px]">{amount}</span>}
+        </div>
+      )}
+      {children}
+    </section>
+  );
+}
+
+/**
+ * The headline figure at the top of a screen. Opaque so the ruling stops above
+ * it and picks up again below, but edgeless so it does not read as a card.
+ */
+export function Hero({ children }: { children: React.ReactNode }) {
+  // Full-bleed to the page edges, cancelling the asymmetric gutter that
+  // .paper-body uses to clear the margin rule. The band paints over the rule
+  // rather than being interrupted by it — the same idea as the tape.
+  return (
+    <div
+      className="slab"
+      style={{ marginLeft: -44, marginRight: -16, paddingLeft: 16, paddingRight: 16 }}
+    >
+      {children}
     </div>
   );
 }

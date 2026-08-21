@@ -1,7 +1,7 @@
 import { relativeDate } from '@/lib/date';
 import { php } from '@/lib/model';
 import { Tally } from '@/components/Tally';
-import { Aside } from '@/components/Screen';
+import { Aside, Card } from '@/components/Screen';
 
 /** One stroke per quarter of a day's allowance, so a day reads at a glance. */
 function strokes(total: number, dailyBudget: number): number {
@@ -25,12 +25,7 @@ export function RecentDays({
   const under = days.reduce((s, d) => s + Math.max(0, dailyBudget - d.total), 0);
 
   return (
-    <section className="pb-8">
-      <div className="leader mt-7 mb-2">
-        <h2 className="sign-label tint-teal">Recent days</h2>
-        <span className="leader-fill" aria-hidden />
-      </div>
-
+    <Card title="Recent days" className="mb-8">
       <ul className="flex flex-col gap-2.5">
         {days.map((d) => {
           const ratio = d.total / dailyBudget;
@@ -60,6 +55,6 @@ export function RecentDays({
           {php(under)} saved across these days
         </Aside>
       )}
-    </section>
+    </Card>
   );
 }

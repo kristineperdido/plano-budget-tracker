@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AmountField } from '@/components/AmountField';
-import { Screen, Aside } from '@/components/Screen';
+import { Screen, Card, Aside } from '@/components/Screen';
 import { PayerTag } from '@/components/Payer';
 import {
   PAYER_DESCRIPTION,
@@ -173,13 +173,7 @@ export default function LedgerPage() {
             const rows = active.filter((i) => i.cadence === s.cadence);
             const subtotal = rows.reduce((sum, i) => sum + i.amount, 0);
             return (
-              <section key={s.cadence}>
-                <div className="leader mt-7 mb-1">
-                  <h2 className="sign-label tint-teal">{s.title}</h2>
-                  <span className="leader-fill" aria-hidden />
-                  <span className="num text-[13px]">{php(subtotal)}</span>
-                </div>
-
+              <Card key={s.cadence} title={s.title} amount={php(subtotal)}>
                 {rows.length === 0 && <p className="empty py-3">nothing here yet</p>}
 
                 {rows.map((item) => {
@@ -327,18 +321,13 @@ export default function LedgerPage() {
                 <button type="button" onClick={() => addItem(s.cadence)} className="btn btn--dashed mt-2">
                   + one more
                 </button>
-              </section>
+              </Card>
             );
           })}
 
           {/* Food is computed from the day types, so it is shown but never edited here. */}
           {forecast && (
-            <section>
-              <div className="leader mt-7 mb-1">
-                <h2 className="sign-label tint-teal">Food</h2>
-                <span className="leader-fill" aria-hidden />
-                <span className="num text-[13px]">{php(forecast.perMonth)}</span>
-              </div>
+            <Card title="Food" amount={php(forecast.perMonth)}>
               <div className="row">
                 <PayerTag payer="split" />
                 <span className="row-label">
@@ -347,18 +336,14 @@ export default function LedgerPage() {
                 </span>
                 <span className="marker tint-gold text-[17px]">derived</span>
               </div>
-            </section>
+            </Card>
           )}
 
-          <section className="pb-8">
-            <div className="leader mt-7 mb-1">
-              <h2 className="sign-label tint-teal">Money in</h2>
-              <span className="leader-fill" aria-hidden />
-              <span className="num text-[13px]">
-                {php(config.moneyIn.reduce((s, m) => s + m.amount, 0))}
-              </span>
-            </div>
-
+          <Card
+            title="Money in"
+            amount={php(config.moneyIn.reduce((s, m) => s + m.amount, 0))}
+            className="mb-8"
+          >
             {config.moneyIn.map((m) => (
               <div key={m.id}>
                 <div className="row">
@@ -391,7 +376,7 @@ export default function LedgerPage() {
             <Aside tilt={-1.5} className="mt-3">
               tap a name to change who pays
             </Aside>
-          </section>
+          </Card>
         </>
       )}
     </Screen>
