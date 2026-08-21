@@ -253,7 +253,7 @@ export default function LedgerPage() {
                       {/* What it actually came to. Only monthly bills vary
                           enough to be worth chasing month by month. */}
                       {recordable(item) && (
-                        <div className="-mt-1 mb-2 flex items-center gap-2 pl-[61px]">
+                        <div className="mb-1.5 flex items-center gap-2 pl-[61px]">
                           <span className="row-status flex-1">
                             {(() => {
                               const actual = actualFor(item);
@@ -280,10 +280,10 @@ export default function LedgerPage() {
                           {actualFor(item) === null && recording !== item.id ? (
                             <button
                               type="button"
-                              className="chip whitespace-nowrap"
+                              className="tap-target"
                               onClick={() => setRecording(item.id)}
                             >
-                              Record
+                              <span className="chip chip--sm whitespace-nowrap">Record</span>
                             </button>
                           ) : (
                             <>

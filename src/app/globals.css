@@ -400,6 +400,26 @@ button {
 }
 .btn--dashed:active { outline-color: var(--ink); color: var(--ink); }
 
+/* A small chip for a secondary action sitting beside meta text. The visual
+   size is modest; the tap target is not, which is what .tap-target is for —
+   padding on a transparent wrapper keeps the 44px minimum without a bulky
+   outline. */
+.chip--sm {
+  padding: 4px 10px;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+}
+.tap-target {
+  display: inline-flex;
+  align-items: center;
+  /* 9px each side plus a 27px chip clears the 44px minimum at 45, without
+     making the row taller than the ones around it. */
+  padding: 9px 0;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+
 /* A tappable option row — day types, phases, payer picks. */
 .chip {
   border: 1px solid var(--rule);
