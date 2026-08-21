@@ -192,9 +192,10 @@ export default function LedgerPage() {
                           <PayerTag payer={item.payer} />
                         </button>
 
+                        <span className="row-label min-w-0">
                         <input
                           aria-label={`Name of ${item.label}`}
-                          className="row-label min-w-0 border-b border-transparent bg-transparent outline-none focus:border-[var(--ink)]"
+                          className="w-full border-b border-transparent bg-transparent text-[13.5px] outline-none focus:border-[var(--ink)]"
                           value={item.label}
                           onChange={(e) =>
                             setConfig({
@@ -212,6 +213,12 @@ export default function LedgerPage() {
                             )
                           }
                         />
+                        {/* Inside the row, so it sits above the dotted divider
+                            rather than pressed against it. */}
+                        {item.note && !open && (
+                          <span className="row-meta block">{item.note}</span>
+                        )}
+                        </span>
 
                         <AmountField
                           label={`Amount for ${item.label}`}
@@ -222,9 +229,7 @@ export default function LedgerPage() {
                         />
                       </div>
 
-                      {item.note && !open && (
-                        <p className="row-meta -mt-1 mb-2 pl-[61px]">{item.note}</p>
-                      )}
+
 
                       {/* What it actually came to. Only monthly bills vary
                           enough to be worth chasing month by month. */}
@@ -392,23 +397,33 @@ export default function LedgerPage() {
                       <PayerTag payer={m.owner} />
                     </button>
 
-                    <input
-                      aria-label={`Name of ${m.label}`}
-                      className="row-label min-w-0 border-b border-transparent bg-transparent outline-none focus:border-[var(--ink)]"
-                      value={m.label}
-                      onChange={(e) =>
-                        setConfig({
-                          ...config,
-                          moneyIn: config.moneyIn.map((x) =>
-                            x.id === m.id ? { ...x, label: e.target.value } : x,
-                          ),
-                        })
-                      }
-                      onBlur={(e) => patch({ label: e.target.value }, `Renamed to ${e.target.value}`)}
-                    />
+                    {/* The stamps used to sit on this line, competing with the
+                        name for width, so a longer name was simply cut off.
+                        They belong with the note underneath. */}
+                    <span className="row-label min-w-0">
+                      <input
+                        aria-label={`Name of ${m.label}`}
+                        className="w-full border-b border-transparent bg-transparent text-[13.5px] outline-none focus:border-[var(--ink)]"
+                        value={m.label}
+                        onChange={(e) =>
+                          setConfig({
+                            ...config,
+                            moneyIn: config.moneyIn.map((x) =>
+                              x.id === m.id ? { ...x, label: e.target.value } : x,
+                            ),
+                          })
+                        }
+                        onBlur={(e) => patch({ label: e.target.value }, `Renamed to ${e.target.value}`)}
+                      />
 
-                    {m.uncertain && <span className="stamp stamp--gold">Uncertain</span>}
-                    {m.backup && <span className="stamp stamp--muted">Backup</span>}
+                      {(m.uncertain || m.backup || (m.note && !open)) && (
+                        <span className="mt-1 flex flex-wrap items-center gap-1.5">
+                          {m.uncertain && <span className="stamp stamp--gold">Uncertain</span>}
+                          {m.backup && <span className="stamp stamp--muted">Backup</span>}
+                          {m.note && !open && <span className="row-meta">{m.note}</span>}
+                        </span>
+                      )}
+                    </span>
 
                     <AmountField
                       label={`Amount for ${m.label}`}
@@ -416,8 +431,6 @@ export default function LedgerPage() {
                       onCommit={(v) => patch({ amount: v }, `${m.label} set to ${php(v)}`)}
                     />
                   </div>
-
-                  {m.note && !open && <p className="row-meta -mt-1 mb-2 pl-[61px]">{m.note}</p>}
 
                   {open && (
                     <div className="mb-3 pl-[61px]">

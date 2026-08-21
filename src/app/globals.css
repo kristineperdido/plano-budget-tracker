@@ -479,10 +479,36 @@ button {
   color: var(--paper);
   display: grid;
   place-items: center;
-  font: 400 30px/1 var(--sign);
   box-shadow: 0 5px 0 0 rgb(36 30 21 / 0.22);
   border: 0;
   cursor: pointer;
+  /* The label is for screen readers; the cross below is the visible mark. */
+  font-size: 0;
+}
+
+/* Drawn, not typeset. A glyph is centred on its own baseline and side
+   bearings, not on the box around it, so a '+' set in Anton sits visibly off
+   in a circle no matter what the box does. Two rectangles are centred by
+   construction. */
+.fab::before,
+.fab::after {
+  content: '';
+  position: absolute;
+  /* inset:0 with auto margins and a definite size centres exactly, rather than
+     depending on how a browser resolves the static position of an absolutely
+     positioned child inside a grid. */
+  inset: 0;
+  margin: auto;
+  background: currentColor;
+  border-radius: 1px;
+}
+.fab::before {
+  width: 20px;
+  height: 3.5px;
+}
+.fab::after {
+  width: 3.5px;
+  height: 20px;
 }
 .fab:active { transform: translateY(3px); box-shadow: 0 2px 0 0 rgb(36 30 21 / 0.22); }
 
