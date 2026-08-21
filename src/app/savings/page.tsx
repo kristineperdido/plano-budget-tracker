@@ -178,29 +178,34 @@ export default function SavingsPage() {
         <p className="empty py-16 text-center">counting what&rsquo;s put away…</p>
       ) : (
         <>
+          {/* Only the figure is full-bleed. Hero cancels the page gutter so a
+              centred number sits on the page's midline rather than the
+              content column's — but anything full-width inside it runs past
+              the red margin rule at 34px, which the goal bar did. */}
           <Hero>
-          <section className="pt-5 pb-2 text-center">
-            <p className="sign-label tint-teal" style={{ letterSpacing: '0.2em' }}>
-              Put away
-            </p>
-            <p className="num num-hero tint-green mt-2">{php(balance)}</p>
-            {goal > 0 && (
-              <>
-                <div className="pace mt-4">
-                  <div className="pace-fill" style={{ width: `${pct * 100}%` }} />
-                </div>
-                <p className="tint-muted mt-1.5 text-[12px]">
-                  {Math.round(pct * 100)}% of {php(goal)} · {config.savings.goalLabel}
-                </p>
-                {balance < goal && (
-                  <Aside tilt={-1.5} className="mt-2">
-                    {php(goal - balance)} to go
-                  </Aside>
-                )}
-              </>
-            )}
-          </section>
+            <section className="pt-5 pb-1 text-center">
+              <p className="sign-label tint-teal" style={{ letterSpacing: '0.2em' }}>
+                Put away
+              </p>
+              <p className="num num-hero tint-green mt-2">{php(balance)}</p>
+            </section>
           </Hero>
+
+          {goal > 0 && (
+            <section className="pb-1 text-center">
+              <div className="pace mt-4">
+                <div className="pace-fill" style={{ width: `${pct * 100}%` }} />
+              </div>
+              <p className="tint-muted mt-1.5 text-[12px]">
+                {Math.round(pct * 100)}% of {php(goal)} · {config.savings.goalLabel}
+              </p>
+              {balance < goal && (
+                <Aside tilt={-1.5} className="mt-2">
+                  {php(goal - balance)} to go
+                </Aside>
+              )}
+            </section>
+          )}
 
           <Card title="What you have">
             <div className="row">
