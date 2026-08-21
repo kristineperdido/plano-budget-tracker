@@ -269,10 +269,13 @@ button {
    nor a paler grey clears the contrast floor. Both stay charcoal at 4.9:1. */
 .row-status {
   font: 400 9.5px/1.3 var(--sign);
-  letter-spacing: 0.1em;
+  /* Tighter than a section label: this sits on a row beside the "came to"
+     control, and at 0.1em the line wrapped and pushed the row taller. */
+  letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--charcoal);
   display: block;
+  white-space: nowrap;
 }
 
 /* ------------------------------------------------------------

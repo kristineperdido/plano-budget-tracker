@@ -243,7 +243,7 @@ export default function LedgerPage() {
                           <span className="row-status flex-1">
                             {(() => {
                               const actual = actualFor(item);
-                              if (actual === null) return `${shortMonth(billMonth(item))} — came to?`;
+                              if (actual === null) return `${shortMonth(billMonth(item))} — not recorded`;
                               const diff = item.amount - actual;
                               if (Math.abs(diff) < 0.5) return `${shortMonth(billMonth(item))} — as planned`;
                               return (
@@ -255,6 +255,9 @@ export default function LedgerPage() {
                                 </>
                               );
                             })()}
+                          </span>
+                          <span className="tint-muted whitespace-nowrap text-[11px]">
+                            came to
                           </span>
                           <AmountField
                             label={`What ${item.label} came to in ${billMonth(item)}`}
