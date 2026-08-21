@@ -66,18 +66,18 @@ export function Card({
 }
 
 /**
- * The headline figure at the top of a screen. Opaque so the ruling stops above
- * it and picks up again below, but edgeless so it does not read as a card.
+ * The headline figure at the top of a screen. It sits straight on the ruled
+ * paper with no sheet under it — at 52-54px a figure is far too big to be
+ * confused with a line of writing, so the ruling reads as ground behind it
+ * rather than as something it ought to line up with.
+ *
+ * The wrapper still earns its place: .paper-body has an asymmetric gutter
+ * (44px left to clear the margin rule, 16px right), so anything centred inside
+ * it would sit 14px off-centre. This cancels that and re-centres on the page.
  */
 export function Hero({ children }: { children: React.ReactNode }) {
-  // Full-bleed to the page edges, cancelling the asymmetric gutter that
-  // .paper-body uses to clear the margin rule. The band paints over the rule
-  // rather than being interrupted by it — the same idea as the tape.
   return (
-    <div
-      className="slab"
-      style={{ marginLeft: -44, marginRight: -16, paddingLeft: 16, paddingRight: 16 }}
-    >
+    <div style={{ marginLeft: -44, marginRight: -16, paddingLeft: 16, paddingRight: 16 }}>
       {children}
     </div>
   );
