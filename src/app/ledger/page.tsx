@@ -61,6 +61,13 @@ export default function LedgerPage() {
    * you are in; a one-time cost lands once, in whichever month the plan
    * schedules it.
    */
+  /** "Aug 26" — short enough to sit on one line beside the field. */
+  const shortMonth = (m: string) => {
+    const names = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const [y, mm] = m.split('-').map(Number);
+    return `${names[mm - 1]} ${String(y).slice(2)}`;
+  };
+
   const billMonth = useCallback(
     (item: LineItem) =>
       item.cadence === 'onetime' && config
@@ -236,12 +243,12 @@ export default function LedgerPage() {
                           <span className="row-status flex-1">
                             {(() => {
                               const actual = actualFor(item);
-                              if (actual === null) return `${billMonth(item)} — not recorded`;
+                              if (actual === null) return `${shortMonth(billMonth(item))} — came to?`;
                               const diff = item.amount - actual;
-                              if (Math.abs(diff) < 0.5) return `${billMonth(item)} — exactly as planned`;
+                              if (Math.abs(diff) < 0.5) return `${shortMonth(billMonth(item))} — as planned`;
                               return (
                                 <>
-                                  {billMonth(item)} —{' '}
+                                  {shortMonth(billMonth(item))} —{' '}
                                   <span className={diff > 0 ? 'tint-green' : 'tint-brick'}>
                                     {php(Math.abs(diff))} {diff > 0 ? 'under' : 'over'}
                                   </span>
@@ -249,7 +256,6 @@ export default function LedgerPage() {
                               );
                             })()}
                           </span>
-                          <span className="tint-muted text-[11px]">came to</span>
                           <AmountField
                             label={`What ${item.label} came to in ${billMonth(item)}`}
                             value={actualFor(item) ?? item.amount}
