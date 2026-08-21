@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "tsx tests/engine.test.ts && tsx tests/close.test.ts && tsx tests/envelope.test.ts"
+    "test": "tsx tests/engine.test.ts && tsx tests/close.test.ts && tsx tests/envelope.test.ts && tsx tests/cashflow.test.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.112.3",

@@ -173,6 +173,12 @@ export default function TodayPage() {
     () => byDay(entries.filter((e) => e.spent_on !== today)).slice(0, RECENT_DAYS),
     [entries, today],
   );
+  const loggedByDay = useMemo(() => {
+    const m: Record<string, number> = {};
+    for (const e of entries) m[e.spent_on] = (m[e.spent_on] ?? 0) + e.amount;
+    return m;
+  }, [entries]);
+
   // Settlement runs over the whole fetched window, not just today, so a debt
   // from last week is still visible.
   const outstanding = useMemo(() => settle(entries), [entries]);
@@ -313,6 +319,7 @@ export default function TodayPage() {
           today={today}
           food={food}
           leftToday={envelope.leftToday}
+          loggedByDay={loggedByDay}
           pot={envelope.pot}
           potLabel={config?.pot.label ?? 'For eat out'}
           startFromPot={sheetFromPot}

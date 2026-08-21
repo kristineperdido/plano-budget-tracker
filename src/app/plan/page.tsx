@@ -7,6 +7,8 @@ import { PayerMark, PayerTag } from '@/components/Payer';
 import type { Config } from '@/lib/config';
 import { fetchConfig } from '@/lib/configStore';
 import { computePlan, foodForecast, totalMonths, phaseOf } from '@/lib/engine';
+import { computeCashflow } from '@/lib/cashflow';
+import { CashflowPanel } from '@/components/Cashflow';
 import { addDays, todayISO, monthIndexOf } from '@/lib/date';
 import { fetchEntries } from '@/lib/entries';
 import { php } from '@/lib/model';
@@ -72,6 +74,7 @@ export default function PlanPage() {
   }, [config, entries]);
 
   const months = config ? totalMonths(config.phases) : 0;
+  const flow = useMemo(() => (config ? computeCashflow(config) : null), [config]);
 
   return (
     <Screen title="Plan" meta={plan ? `${months} months` : undefined}>
@@ -160,6 +163,31 @@ export default function PlanPage() {
             </button>
           </div>
 
+          {flow && <CashflowPanel flow={flow} potLabel={config.pot.label} />}
+
+          {/* Items whose start month falls outside the plan are charged to
+              nothing at all. Silence there let a 9,999/month cost move the net
+              by zero, so they are named rather than quietly dropped. */}
+          {plan.orphaned.length > 0 && (
+            <Card title="Not in this plan">
+              <Aside tilt={-1.5} tint="gold" className="mb-2">
+                scheduled outside the {months} months mapped, so nothing counts{' '}
+                {plan.orphaned.length === 1 ? 'it' : 'them'}
+              </Aside>
+              {plan.orphaned.map((i) => (
+                <div key={i.id} className="row">
+                  <span className="row-label">
+                    {i.label}
+                    <span className="row-meta block">
+                      starts month {i.startMonth + 1} of a {months}-month plan
+                    </span>
+                  </span>
+                  <span className="num tint-muted text-[14px]">{php(i.amount)}</span>
+                </div>
+              ))}
+            </Card>
+          )}
+
           <Card title="Where it goes">
             <Row
               mark={<PayerMark shape="solid" />}
@@ -174,11 +202,18 @@ export default function PlanPage() {
             <Row
               mark={<PayerMark shape="both" />}
               label="Food"
-              sub={`${php(plan.food.perMonth)}/month forecast`}
+              sub={`${php(config.food.dailyBudget)}/day for the days you're there`}
               amount={php(plan.food.total)}
             />
             <Row label="Tin's income + savings" amount={php(plan.income.her + plan.moneyIn.her)} />
             <Row label="Jhay's income" amount={php(plan.income.him + plan.moneyIn.him)} />
+
+            {plan.foodVariance.gap > 0 && (
+              <Aside tilt={-1.5} tint="gold" className="mt-2">
+                your day types imply {php(plan.foodVariance.forecast)}/mo against a{' '}
+                {php(plan.foodVariance.budgeted)} allowance — {php(plan.foodVariance.gap)} over
+              </Aside>
+            )}
           </Card>
 
           <Card title="Logged vs forecast" className="mb-8">

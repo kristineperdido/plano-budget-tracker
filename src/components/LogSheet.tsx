@@ -29,6 +29,7 @@ export function LogSheet({
   today,
   food,
   leftToday,
+  loggedByDay,
   pot,
   potLabel,
   startFromPot,
@@ -40,6 +41,8 @@ export function LogSheet({
   food: FoodConfig;
   /** What is left of today's limit, so the sheet can warn before it tips. */
   leftToday: number;
+  /** Already logged per day, so a second tap on the same day is caught. */
+  loggedByDay: Record<string, number>;
   /** The side pot's balance. */
   pot: number;
   potLabel: string;
@@ -157,6 +160,12 @@ export function LogSheet({
   }
 
   const dayOptions = [today, addDays(today, -1), addDays(today, -2)];
+
+  // One tap covers most nights, which also makes it easy to tap twice. A day
+  // that already has entries is almost always a mistake rather than a second
+  // dinner, so say so before it becomes two identical rows.
+  const already = loggedByDay[day] ?? 0;
+  const duplicate = mode === 'day' && already > 0;
 
   return (
     <>
@@ -399,11 +408,17 @@ export function LogSheet({
           </Aside>
         )}
 
+        {duplicate && (
+          <Aside tilt={-2} tint="gold" className="mt-2 text-[18px]">
+            {php(already)} already logged on this day — sure this isn&rsquo;t a second tap?
+          </Aside>
+        )}
+
         {error && <p className="tint-brick mt-3 text-[12.5px]">{error}</p>}
 
         <div className="mt-5 flex gap-2.5">
           <button type="submit" disabled={!canSave || saving} className="btn btn--primary flex-[2]">
-            {saving ? 'Saving…' : mode === 'day' ? 'Log the day' : 'Log it'}
+            {saving ? 'Saving…' : duplicate ? 'Log anyway' : mode === 'day' ? 'Log the day' : 'Log it'}
           </button>
           <button
             type="button"
