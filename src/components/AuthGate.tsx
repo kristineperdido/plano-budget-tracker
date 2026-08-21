@@ -152,7 +152,7 @@ function SignIn({ linkError }: { linkError: string | null }) {
 
         {sent ? (
           <div
-            className="paper mt-7 p-6 text-center"
+            className="slab mt-7 p-6 text-center"
             style={{ color: 'var(--ink)', boxShadow: '0 6px 0 0 rgb(0 0 0 / 0.35)' }}
           >
             <p className="sign text-[15px]">Check your email</p>
@@ -171,7 +171,7 @@ function SignIn({ linkError }: { linkError: string | null }) {
         ) : (
           <form
             onSubmit={submit}
-            className="paper mt-7 p-6"
+            className="slab mt-7 p-6"
             style={{ color: 'var(--ink)', boxShadow: '0 6px 0 0 rgb(0 0 0 / 0.35)' }}
           >
             <label className="block">
