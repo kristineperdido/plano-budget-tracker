@@ -2,77 +2,95 @@
 
 import { php } from '@/lib/model';
 import { Card, Aside } from '@/components/Screen';
-import type { Cashflow } from '@/lib/cashflow';
+import type { Cashflow, MonthFlow } from '@/lib/cashflow';
+
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const short = (m: string) => {
+  const [y, mm] = m.split('-').map(Number);
+  return `${MONTHS[mm - 1]} ${String(y).slice(2)}`;
+};
+
+/** The same colour the runway gives this month, so the two read as one thing. */
+function tintOf(m: MonthFlow): string {
+  if (m.short) return 'tint-brick';
+  if (m.needsBackup) return 'tint-brick';
+  if (m.needsUncertain) return 'tint-gold';
+  return m.gap < 0 ? 'tint-green' : 'tint-green';
+}
 
 /**
- * Where the money for each month actually comes from.
+ * The arithmetic behind the runway, month by month.
  *
- * The net figure above this answers "does it balance overall". It cannot answer
- * "is there anything left to pay with in March", because it pours income,
- * savings and a promised repayment into one bucket. This lays the months out in
- * order and draws reserves down by how much they can be relied on, so a plan
- * that balances on paper but runs dry in month two says so.
+ * This used to be three lines of prose per month with an unlabelled figure on
+ * the right, and it repeated in words what the runway above now says in colour.
+ * It is a table: what came in, what went out, and how far short. Which kind of
+ * money covered each month is carried by the tint, matching the runway's key.
  */
-export function CashflowPanel({ flow, potLabel }: { flow: Cashflow; potLabel?: string }) {
-  const worst = flow.firstMonthShort ?? flow.firstMonthNeedingUncertain;
+export function CashflowPanel({ flow }: { flow: Cashflow; potLabel?: string }) {
+  const totalOut = flow.months.reduce((s, m) => s + m.out, 0);
+  const totalIn = flow.months.reduce((s, m) => s + m.income, 0);
+  const reservesTotal = flow.reserves.committed + flow.reserves.uncertain + flow.reserves.backup;
+  const leftAtEnd = reservesTotal - flow.totalGap;
 
   return (
-    <Card title="Where each month is paid from" tape="left">
-      {flow.months.map((m) => {
-        const covered = m.gap >= 0;
-        return (
-          <div key={m.month} className="row flex-wrap">
-            <span className="num tint-muted w-[62px] text-[12px]">{m.month}</span>
-            <span className="row-label">
-              {covered ? 'covered by income' : `income short by ${php(-m.gap)}`}
-              <span className="row-meta block">
-                in {php(m.income)} · out {php(m.out)}
-                {m.phaseLabel && ` · ${m.phaseLabel.toLowerCase()}`}
-              </span>
-              {!covered && (
-                <span className="row-meta block">
-                  {m.short
-                    ? 'nothing left to cover it'
-                    : m.needsBackup
-                      ? 'drawn from the backup savings'
-                      : m.needsUncertain
-                        ? 'drawn from money that is not certain'
-                        : 'drawn from savings in hand'}
-                </span>
-              )}
+    <Card title="Month by month" tape="left">
+      <div className="num" style={{ fontSize: 12.5 }}>
+        <div
+          className="flex items-baseline gap-2 border-b pb-1"
+          style={{ borderColor: 'var(--rule)' }}
+        >
+          <span className="sign-label tint-teal" style={{ width: 52 }}>
+            Month
+          </span>
+          <span className="sign-label tint-teal flex-1 text-right">In</span>
+          <span className="sign-label tint-teal flex-1 text-right">Out</span>
+          <span className="sign-label tint-teal flex-1 text-right">Short</span>
+        </div>
+
+        {flow.months.map((m) => (
+          <div
+            key={m.month}
+            className="flex items-baseline gap-2 border-b border-dotted py-1.5"
+            style={{ borderColor: 'var(--rule)' }}
+          >
+            <span className="tint-muted" style={{ width: 52 }}>
+              {short(m.month)}
             </span>
-            <span
-              className={`num text-[14px] ${
-                m.short ? 'tint-brick' : m.needsUncertain || m.needsBackup ? 'tint-gold' : covered ? 'tint-green' : ''
-              }`}
-            >
-              {php(m.committedLeft)}
+            <span className="flex-1 text-right">{php(m.income)}</span>
+            <span className="flex-1 text-right">{php(m.out)}</span>
+            <span className={`flex-1 text-right ${tintOf(m)}`}>
+              {m.gap < 0 ? `−${php(-m.gap)}` : `+${php(m.gap)}`}
             </span>
           </div>
-        );
-      })}
+        ))}
 
-      <div className="leader mt-3 border-t pt-2.5" style={{ borderColor: 'var(--rule)' }}>
-        <span className="sign-label">In hand at the end</span>
-        <span className="leader-fill" aria-hidden />
-        <span className={`num text-[17px] ${flow.endsWith >= 0 ? 'tint-green' : 'tint-brick'}`}>
-          {php(flow.endsWith)}
-        </span>
+        <div className="flex items-baseline gap-2 pt-2">
+          <span className="sign-label tint-teal" style={{ width: 52 }}>
+            All
+          </span>
+          <span className="flex-1 text-right">{php(totalIn)}</span>
+          <span className="flex-1 text-right">{php(totalOut)}</span>
+          <span className="tint-brick flex-1 text-right">−{php(flow.totalGap)}</span>
+        </div>
       </div>
 
-      <div className="mt-2">
+      {/* What has to cover that shortfall, and in what order it gets spent. */}
+      <div className="mt-4 border-t pt-2" style={{ borderColor: 'var(--rule)' }}>
         <div className="row">
-          <span className="row-label">Money you can count on</span>
-          <span className="num text-[13px]">{php(flow.reserves.committed)}</span>
+          <span className="row-label">
+            Money you can count on
+            <span className="row-meta block">spent first</span>
+          </span>
+          <span className="num tint-green text-[13px]">{php(flow.reserves.committed)}</span>
         </div>
         {flow.reserves.uncertain > 0 && (
           <div className="row">
             <span className="row-label">
-              Uncertain
+              Might not arrive
               <span className="row-meta block">
                 {flow.firstMonthNeedingUncertain
-                  ? `needed from ${flow.firstMonthNeedingUncertain}`
-                  : 'not needed by this plan'}
+                  ? `needed from ${short(flow.firstMonthNeedingUncertain)}`
+                  : 'not needed'}
               </span>
             </span>
             <span className="num tint-gold text-[13px]">{php(flow.reserves.uncertain)}</span>
@@ -81,51 +99,25 @@ export function CashflowPanel({ flow, potLabel }: { flow: Cashflow; potLabel?: s
         {flow.reserves.backup > 0 && (
           <div className="row">
             <span className="row-label">
-              Held back
-              <span className="row-meta block">not part of the plan</span>
+              The reserve
+              <span className="row-meta block">meant to stay untouched</span>
             </span>
-            <span className="num tint-muted text-[13px]">{php(flow.reserves.backup)}</span>
+            <span className="num tint-brick text-[13px]">{php(flow.reserves.backup)}</span>
           </div>
         )}
+
+        <div className="leader mt-2 border-t pt-2.5" style={{ borderColor: 'var(--rule)' }}>
+          <span className="sign-label">Left at the end</span>
+          <span className="leader-fill" aria-hidden />
+          <span className={`num text-[17px] ${leftAtEnd < 0 ? 'tint-brick' : 'tint-green'}`}>
+            {php(leftAtEnd)}
+          </span>
+        </div>
+
+        <Aside tilt={-1.5} tint={leftAtEnd < 0 ? 'brick' : 'gold'} className="mt-2">
+          {php(reservesTotal)} of savings against {php(flow.totalGap)} of shortfall
+        </Aside>
       </div>
-
-      {/* How far the money goes, which is the question the long phase exists to
-          answer. Stated in months, because "we last until January" is the thing
-          you actually want to know. */}
-      <div className="leader mt-3 border-t pt-2.5" style={{ borderColor: 'var(--rule)' }}>
-        <span className="sign-label">Lasts</span>
-        <span className="leader-fill" aria-hidden />
-        <span
-          className={`num text-[17px] ${
-            flow.firstMonthShort ? 'tint-brick' : flow.firstMonthNeedingUncertain ? 'tint-gold' : 'tint-green'
-          }`}
-        >
-          {flow.monthsCovered} of {flow.months.length} months
-        </span>
-      </div>
-
-      {flow.firstMonthShort ? (
-        <Aside tilt={-1.5} tint="brick" className="mt-2">
-          {flow.lastsUntil
-            ? `covered through ${flow.lastsUntil}, then ${flow.firstMonthShort} cannot be paid for`
-            : `${flow.firstMonthShort} cannot be paid for at all`}
-        </Aside>
-      ) : flow.firstMonthNeedingUncertain ? (
-        <Aside tilt={-1.5} tint="gold" className="mt-2">
-          money in hand runs out in {flow.firstMonthNeedingUncertain} — the rest leans on
-          money you can&rsquo;t count on
-        </Aside>
-      ) : (
-        <Aside tilt={-1.5} tint="green" className="mt-2">
-          clears on money you already have, with {php(flow.endsWith)} to spare
-        </Aside>
-      )}
-
-      {worst === null && potLabel && (
-        <p className="row-meta mt-1">
-          anything underspent on food goes to {potLabel.toLowerCase()} on top of this
-        </p>
-      )}
     </Card>
   );
 }

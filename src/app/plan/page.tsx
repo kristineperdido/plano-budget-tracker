@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { Row, Signed } from '@/components/Money';
-import { Screen, Card, Hero, Aside } from '@/components/Screen';
+import { Screen, Card, Aside } from '@/components/Screen';
 import { PayerMark, PayerTag } from '@/components/Payer';
 import { useConfig } from '@/lib/useConfig';
 import { computePlan, foodForecast, totalMonths } from '@/lib/engine';
@@ -158,9 +158,10 @@ export default function PlanPage() {
         <>
           {/* The runway leads and sits above the scope control, because it
               describes the whole plan rather than the phase being read. */}
-          <Hero>
-            <Runway flow={flow} />
-          </Hero>
+          {/* No Hero wrapper: Runway does its own full-bleed for the headline
+              only. Nesting the two applied the negative margins twice and threw
+              the whole block 44px off the left edge, over the margin rule. */}
+          <Runway flow={flow} />
 
           {/* The phase you are reading, what it means, and when it runs. */}
           <Card title="Where you are">
@@ -336,7 +337,7 @@ export default function PlanPage() {
             </button>
           </div>
 
-          {flow && <CashflowPanel flow={flow} potLabel={config.pot.label} />}
+          {flow && <CashflowPanel flow={flow} />}
 
           {/* Items whose start month falls outside the plan are charged to
               nothing at all. Silence there let a 9,999/month cost move the net

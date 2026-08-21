@@ -61,7 +61,9 @@ export function Runway({ flow }: { flow: Cashflow }) {
       </p>
 
       <p className="tint-muted mt-1.5 text-center text-[12.5px]">
-        {flow.monthsCovered} of {flow.months.length} months covered
+        {ran
+          ? `${flow.monthsCovered} of ${flow.months.length} months covered`
+          : 'where the plan ends, not where the money does'}
       </p>
       </div>
 
@@ -93,15 +95,27 @@ export function Runway({ flow }: { flow: Cashflow }) {
             ? `covered through ${pretty(flow.lastsUntil)}, then nothing pays for ${pretty(flow.firstMonthShort as string)}`
             : `the first month cannot be paid for`}
         </Aside>
-      ) : flow.firstMonthNeedingUncertain ? (
-        <Aside tilt={-1.5} tint="gold" className="mt-3">
-          money in hand runs out in {pretty(flow.firstMonthNeedingUncertain)} — after that it
-          leans on money you can&rsquo;t count on
-        </Aside>
       ) : (
-        <Aside tilt={-1.5} tint="green" className="mt-3">
-          clears on money you already have, with {php(flow.endsWith)} to spare
-        </Aside>
+        <>
+          {/* The plan stopping is not the money lasting. Say what happens next. */}
+          {flow.projectedDry && (
+            <div className="leader mt-3">
+              <span className="sign-label tint-teal">Gives out</span>
+              <span className="leader-fill" aria-hidden />
+              <span className="num tint-brick text-[15px]">{pretty(flow.projectedDry)}</span>
+            </div>
+          )}
+          {flow.firstMonthNeedingUncertain ? (
+            <Aside tilt={-1.5} tint="gold" className="mt-2">
+              money in hand runs out in {pretty(flow.firstMonthNeedingUncertain)} — after that
+              it leans on money you can&rsquo;t count on
+            </Aside>
+          ) : (
+            <Aside tilt={-1.5} tint="green" className="mt-2">
+              clears on money you already have, with {php(flow.endsWith)} to spare
+            </Aside>
+          )}
+        </>
       )}
     </section>
   );

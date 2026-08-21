@@ -59,11 +59,30 @@ export type Cashflow = {
    */
   lastsUntil: string | null;
   monthsCovered: number;
+  /**
+   * If the plan ends with money still in hand, the month it would give out
+   * anyway — assuming the last month's shortfall keeps repeating. Null when the
+   * plan already runs short inside its own window.
+   *
+   * Without this, "lasts until January" reads as a runway when it is really
+   * just where the plan stops. The five-month plan ends with 2,261 against a
+   * shortfall of 8,395 a month: about a week.
+   */
+  projectedDry: string | null;
+  /** Whole extra months the reserves would cover past the end of the plan. */
+  monthsBeyond: number;
   /** Total shortfall across the plan, before any reserves. */
   totalGap: number;
   /** What is left over at the end, counting only committed money. */
   endsWith: number;
 };
+
+/** `n` months after `month`, as YYYY-MM. */
+function monthPlus(month: string, n: number): string {
+  const [y, m] = month.split('-').map(Number);
+  const t = m + n;
+  return `${y + Math.floor((t - 1) / 12)}-${String(((t - 1) % 12) + 1).padStart(2, '0')}`;
+}
 
 function activeIn(item: LineItem, month: number): boolean {
   return item.cadence === 'onetime' ? item.startMonth === month : month >= item.startMonth;
@@ -167,6 +186,16 @@ export function computeCashflow(config: Config): Cashflow {
   const firstShortIndex = out.findIndex((m) => m.short);
   const monthsCovered = firstShortIndex === -1 ? out.length : firstShortIndex;
 
+  // How much further the money would go if nothing changed after the plan ends.
+  const last = out[out.length - 1];
+  const leftOver = committed + uncertain + backup;
+  let projectedDry: string | null = null;
+  let monthsBeyond = 0;
+  if (firstShortIndex === -1 && last && last.gap < 0) {
+    monthsBeyond = Math.floor(leftOver / -last.gap);
+    projectedDry = monthPlus(last.month, monthsBeyond + 1);
+  }
+
   return {
     months: out,
     reserves,
@@ -174,6 +203,8 @@ export function computeCashflow(config: Config): Cashflow {
     firstMonthShort,
     lastsUntil: monthsCovered === 0 ? null : covered[monthsCovered - 1]?.month ?? null,
     monthsCovered,
+    projectedDry,
+    monthsBeyond,
     totalGap,
     endsWith: committed,
   };

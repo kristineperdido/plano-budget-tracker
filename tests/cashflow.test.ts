@@ -49,6 +49,26 @@ const round = (x: number) => Math.round(x);
   );
 }
 
+// ---- 2a. The plan ending is not the same as the money lasting ----
+//
+// All five months are covered, so nothing inside the window looks wrong. But
+// the plan simply stops in January with 2,261 against a shortfall of about
+// 8,395 a month — roughly a week. Reporting "lasts until January" without this
+// would read as a runway rather than as where the plan happens to end.
+{
+  const f = computeCashflow(DEFAULT_CONFIG);
+  assert.equal(f.firstMonthShort, null, 'nothing runs short inside the plan');
+  assert.equal(f.monthsBeyond, 0, 'not even one further month is covered');
+  assert.equal(f.projectedDry, '2027-02');
+
+  // Running the same conditions longer confirms it independently.
+  const c = clone(DEFAULT_CONFIG);
+  c.phases[1].months = 10;
+  assert.equal(computeCashflow(c).firstMonthShort, '2027-02', 'the same month, the long way round');
+
+  console.log(`  plan ends 2027-01; on the same rate the money gives out ${f.projectedDry}`);
+}
+
 // ---- 2b. Losing the uncertain money shortens the runway ----
 {
   const c = clone(DEFAULT_CONFIG);
