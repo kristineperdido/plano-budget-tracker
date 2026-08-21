@@ -226,6 +226,26 @@ button {
 .row-leader { flex: 1; border-bottom: 1px solid var(--rule); transform: translateY(-4px); }
 .row-meta { font: 400 11.5px/1.3 var(--sans); color: var(--charcoal); }
 
+/* A note someone wrote about a line — "first bill covers Sept–Oct". It is an
+   annotation, so it goes in marker, the same as every other aside. That also
+   separates it from .row-status, which is the app reporting rather than a
+   person writing, and the two used to be identical grey sans. */
+.row-note {
+  font: 600 17px/1.15 var(--marker);
+  color: var(--charcoal);
+  display: block;
+}
+
+/* The app's own report about a row — whether a figure has been recorded yet.
+   Separated from a note by being sans rather than marker, not by being paler:
+   --rule-soft on paper is 2.3:1, well under the minimum, and the design says
+   plainly not to go lighter than charcoal. */
+.row-status {
+  font: 400 11.5px/1.3 var(--sans);
+  color: var(--charcoal);
+  display: block;
+}
+
 /* A section header: LABEL ————————— subtotal, all on one line. */
 .leader {
   display: flex;

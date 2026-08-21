@@ -39,12 +39,14 @@ export function CashflowPanel({ flow }: { flow: Cashflow; potLabel?: string }) {
           className="flex items-baseline gap-2 border-b pb-1"
           style={{ borderColor: 'var(--rule)' }}
         >
-          <span className="sign-label tint-teal" style={{ width: 52 }}>
+          {/* Muted, not teal: the card title above is teal, and two teal
+              small-caps rows running together flattened the hierarchy. */}
+          <span className="sign-label tint-muted" style={{ width: 52 }}>
             Month
           </span>
-          <span className="sign-label tint-teal flex-1 text-right">In</span>
-          <span className="sign-label tint-teal flex-1 text-right">Out</span>
-          <span className="sign-label tint-teal flex-1 text-right">Short</span>
+          <span className="sign-label tint-muted flex-1 text-right">In</span>
+          <span className="sign-label tint-muted flex-1 text-right">Out</span>
+          <span className="sign-label tint-muted flex-1 text-right">Short</span>
         </div>
 
         {flow.months.map((m) => (
@@ -65,7 +67,7 @@ export function CashflowPanel({ flow }: { flow: Cashflow; potLabel?: string }) {
         ))}
 
         <div className="flex items-baseline gap-2 pt-2">
-          <span className="sign-label tint-teal" style={{ width: 52 }}>
+          <span className="sign-label tint-muted" style={{ width: 52 }}>
             All
           </span>
           <span className="flex-1 text-right">{php(totalIn)}</span>

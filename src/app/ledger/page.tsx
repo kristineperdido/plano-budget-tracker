@@ -215,9 +215,7 @@ export default function LedgerPage() {
                         />
                         {/* Inside the row, so it sits above the dotted divider
                             rather than pressed against it. */}
-                        {item.note && !open && (
-                          <span className="row-meta block">{item.note}</span>
-                        )}
+                        {item.note && !open && <span className="row-note">{item.note}</span>}
                         </span>
 
                         <AmountField
@@ -235,7 +233,7 @@ export default function LedgerPage() {
                           enough to be worth chasing month by month. */}
                       {(
                         <div className="-mt-1 mb-2 flex items-center gap-2 pl-[61px]">
-                          <span className="row-meta flex-1">
+                          <span className="row-status flex-1">
                             {(() => {
                               const actual = actualFor(item);
                               if (actual === null) return `${billMonth(item)} — not recorded`;
@@ -420,7 +418,7 @@ export default function LedgerPage() {
                         <span className="mt-1 flex flex-wrap items-center gap-1.5">
                           {m.uncertain && <span className="stamp stamp--gold">Uncertain</span>}
                           {m.backup && <span className="stamp stamp--muted">Backup</span>}
-                          {m.note && !open && <span className="row-meta">{m.note}</span>}
+                          {m.note && !open && <span className="row-note">{m.note}</span>}
                         </span>
                       )}
                     </span>
