@@ -4,7 +4,7 @@ import { supabase } from './supabase';
 import { coerceEntry, type Category, type FoodEntry, type FoodEntryRow, type Share } from './types';
 
 const COLS =
-  'id, spent_on, category, amount, note, person, share, owed_amount, settled_at, created_at';
+  'id, spent_on, category, amount, note, person, share, owed_amount, settled_at, from_pot, created_at';
 
 /**
  * Entries from `from` through `to` inclusive, oldest-last. The Today screen
@@ -32,6 +32,8 @@ export async function addEntry(input: {
   /** Opt-in settlement. Omitted means nobody owes anything on this entry. */
   share?: Share;
   owed_amount?: number | null;
+  /** Draw this from the eat-out pot instead of today's limit. */
+  from_pot?: boolean;
 }): Promise<FoodEntry> {
   const { data, error } = await supabase
     .from('food_entries')
@@ -44,6 +46,7 @@ export async function addEntry(input: {
       // The database rejects an owed amount that no share justifies, so only
       // send one when the share is actually 'fixed'.
       owed_amount: input.share === 'fixed' ? (input.owed_amount ?? 0) : null,
+      from_pot: input.from_pot ?? false,
     })
     .select(COLS)
     .single();

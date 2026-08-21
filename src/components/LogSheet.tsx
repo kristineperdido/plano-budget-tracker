@@ -17,6 +17,7 @@ type NewEntry = {
   note?: string;
   share?: Share;
   owed_amount?: number | null;
+  from_pot?: boolean;
 };
 
 /**
@@ -27,15 +28,23 @@ type NewEntry = {
 export function LogSheet({
   today,
   food,
-  buffer,
+  leftToday,
+  pot,
+  potLabel,
+  startFromPot,
   defaultShare,
   onClose,
   onSave,
 }: {
   today: string;
   food: FoodConfig;
-  /** What is left in the month's buffer, so the sheet can warn before it tips. */
-  buffer: number;
+  /** What is left of today's limit, so the sheet can warn before it tips. */
+  leftToday: number;
+  /** The side pot's balance. */
+  pot: number;
+  potLabel: string;
+  /** Opened from the pot panel, so it starts set to spend from the pot. */
+  startFromPot: boolean;
   /** The settlement the couple usually want, from Settings. */
   defaultShare: 'none' | 'half';
   onClose: () => void;
@@ -58,6 +67,7 @@ export function LogSheet({
   // Settlement, opt-in per log. Defaults to whatever Settings says.
   const [share, setShare] = useState<Share>(defaultShare === 'half' ? 'half' : null);
   const [owed, setOwed] = useState('');
+  const [fromPot, setFromPot] = useState(startFromPot);
 
   useEffect(() => {
     let cancelled = false;
@@ -103,7 +113,9 @@ export function LogSheet({
   const total =
     mode === 'day' ? dayRows.reduce((s, r) => s + r.amount, 0) : itemValid ? itemValue : 0;
   const canSave = (mode === 'day' ? dayRows.length > 0 : itemValid) && owedValid;
-  const overBy = total - buffer;
+  // Money from the pot has already been set aside, so it cannot push today over.
+  const overBy = fromPot ? 0 : total - leftToday;
+  const overPot = fromPot ? total - pot : 0;
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -114,7 +126,8 @@ export function LogSheet({
       // A 'fixed' amount describes one purchase, so on a whole-day log it is
       // applied to the meal line and the extras are left unshared rather than
       // silently repeating the same figure against each of them.
-      const rows: NewEntry[] =
+      const tag = (r: NewEntry): NewEntry => ({ ...r, from_pot: fromPot });
+      const rows: NewEntry[] = (
         mode === 'day'
           ? dayRows.map((r, i) =>
               share === 'fixed'
@@ -132,7 +145,8 @@ export function LogSheet({
                 share,
                 owed_amount: share === 'fixed' ? owedValue : null,
               },
-            ];
+            ]
+      ).map(tag);
       await onSave(rows);
       onClose();
     } catch (err) {
@@ -266,6 +280,25 @@ export function LogSheet({
           </>
         )}
 
+        {pot > 0 && (
+          <div className="row mt-4">
+            <span className="row-label">
+              Out of {potLabel.toLowerCase()}
+              <span className="row-meta block">{php(pot)} set aside</span>
+            </span>
+            <button
+              type="button"
+              className="toggle"
+              data-on={fromPot}
+              aria-pressed={fromPot}
+              aria-label={`Spend from ${potLabel}`}
+              onClick={() => setFromPot((v) => !v)}
+            >
+              <span className="toggle-knob" />
+            </button>
+          </div>
+        )}
+
         {/* Settlement, opt-in. Most spending is just spending, so the default is
             'mine' and nothing has to be decided to log a normal day. */}
         <div className="mt-5">
@@ -355,7 +388,13 @@ export function LogSheet({
 
         {overBy > 0 && total > 0 && (
           <Aside tilt={-2} tint="brick" className="mt-2 text-[18px]">
-            {php(overBy)} past the buffer
+            {php(overBy)} past today&rsquo;s limit — comes out of the month
+          </Aside>
+        )}
+        {overPot > 0 && total > 0 && (
+          <Aside tilt={-2} tint="gold" className="mt-2 text-[18px]">
+            {php(overPot)} more than {potLabel.toLowerCase()} holds — the rest comes out of the
+            month
           </Aside>
         )}
 

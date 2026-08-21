@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { BufferHeadline } from '@/components/BufferHeadline';
+import { BufferHeadline, type View } from '@/components/BufferHeadline';
+import { PotPanel } from '@/components/PotPanel';
 import { EntryList } from '@/components/EntryList';
 import { LogSheet } from '@/components/LogSheet';
 import { MonthProgress } from '@/components/MonthProgress';
@@ -12,6 +13,7 @@ import { SavingsStrip } from '@/components/SavingsStrip';
 import { addDays, monthStart, todayISO, shortDate } from '@/lib/date';
 import { addEntry, deleteEntry, fetchEntries, settleUp } from '@/lib/entries';
 import { byDay, computeToday, php2 } from '@/lib/model';
+import { computeEnvelope } from '@/lib/envelope';
 import { supabase } from '@/lib/supabase';
 import { fetchMembers, type Member } from '@/lib/members';
 import { fetchConfig } from '@/lib/configStore';
@@ -31,6 +33,9 @@ export default function TodayPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
+  // Opening the sheet straight into pot-spending, from the pot panel.
+  const [sheetFromPot, setSheetFromPot] = useState(false);
+  const [view, setView] = useState<View>('day');
   const [pendingDelete, setPendingDelete] = useState<string | null>(null);
   // Bumped by the realtime channel to re-run the fetch effect.
   const [reloadKey, setReloadKey] = useState(0);
@@ -139,6 +144,11 @@ export default function TodayPage() {
     () => computeToday(entries, today, food.dailyBudget),
     [entries, today, food.dailyBudget],
   );
+  // The dynamic daily limit and the side pot, replayed from the 1st.
+  const envelope = useMemo(
+    () => computeEnvelope(entries, today, food.dailyBudget),
+    [entries, today, food.dailyBudget],
+  );
   const todaysEntries = useMemo(
     () => entries.filter((e) => e.spent_on === today),
     [entries, today],
@@ -195,8 +205,22 @@ export default function TodayPage() {
         ) : (
           <>
             <Hero>
-              <BufferHeadline s={stats} />
+              <BufferHeadline
+                envelope={envelope}
+                view={view}
+                onView={setView}
+                potLabel={config?.pot.label ?? 'For eat out'}
+              />
             </Hero>
+
+            <PotPanel
+              envelope={envelope}
+              label={config?.pot.label ?? 'For eat out'}
+              onSpend={() => {
+                setSheetFromPot(true);
+                setSheetOpen(true);
+              }}
+            />
 
             <div className="mt-4">
               <MonthProgress s={stats} today={today} />
@@ -235,7 +259,10 @@ export default function TodayPage() {
 
       <button
         type="button"
-        onClick={() => setSheetOpen(true)}
+        onClick={() => {
+          setSheetFromPot(false);
+          setSheetOpen(true);
+        }}
         aria-label="Log a day"
         className="fab"
       >
@@ -246,7 +273,10 @@ export default function TodayPage() {
         <LogSheet
           today={today}
           food={food}
-          buffer={stats.buffer}
+          leftToday={envelope.leftToday}
+          pot={envelope.pot}
+          potLabel={config?.pot.label ?? 'For eat out'}
+          startFromPot={sheetFromPot}
           defaultShare={config?.settlement.defaultShare ?? 'none'}
           onClose={() => setSheetOpen(false)}
           onSave={handleSave}

@@ -178,6 +178,10 @@ export default function SavingsPage() {
 
           {/* Banking is deliberate: the app never claims money moved on its own. */}
           <Card title="Ready to bank">
+            <Aside tilt={-1.5} className="mb-2">
+              whatever the side pot still holds on the 1st, plus anything the bills came in
+              under
+            </Aside>
             {bankable.length === 0 ? (
               <p className="empty py-3">
                 {months.some((m) => !m.complete && m.surplus > 0)

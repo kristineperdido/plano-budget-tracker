@@ -41,6 +41,7 @@ function migrate(stored: Config): Config {
     moneyIn: stored.moneyIn?.length ? stored.moneyIn : DEFAULT_CONFIG.moneyIn,
     savings: { ...DEFAULT_CONFIG.savings, ...stored.savings },
     settlement: { ...DEFAULT_CONFIG.settlement, ...stored.settlement },
+    pot: { ...DEFAULT_CONFIG.pot, ...stored.pot },
   };
 }
 

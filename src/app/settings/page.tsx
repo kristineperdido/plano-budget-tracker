@@ -186,6 +186,35 @@ export default function SettingsPage() {
             </Aside>
           </Card>
 
+          <Card title="The side pot">
+            <div className="row">
+              <span className="row-label">
+                What to call it
+                <span className="row-meta block">
+                  where an unspent day&rsquo;s limit goes
+                </span>
+              </span>
+              <input
+                aria-label="Name of the side pot"
+                className="row-label max-w-[9rem] border-b bg-transparent text-right outline-none"
+                style={{ borderColor: 'var(--rule)' }}
+                value={config.pot.label}
+                onChange={(e) =>
+                  setConfig({ ...config, pot: { ...config.pot, label: e.target.value } })
+                }
+                onBlur={(e) =>
+                  void persist(
+                    { ...config, pot: { ...config.pot, label: e.target.value } },
+                    `Side pot renamed to ${e.target.value}`,
+                  )
+                }
+              />
+            </div>
+            <Aside tilt={-1.5} className="mt-2">
+              a day that comes in under tips the rest in here rather than raising tomorrow
+            </Aside>
+          </Card>
+
           <Card title="Sharing">
             <div className="row">
               <span className="row-label">

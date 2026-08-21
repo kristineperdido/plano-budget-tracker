@@ -29,6 +29,12 @@ export type FoodEntry = {
   owed_amount: number | null;
   /** Set once the debt on this entry has been squared up. */
   settled_at: string | null;
+  /**
+   * Paid out of the eat-out pot rather than out of the day's limit. The pot is
+   * built from days that came in under budget, so a purchase drawn from it must
+   * not also count against today — that would charge the same peso twice.
+   */
+  from_pot: boolean;
   created_at: string;
 };
 

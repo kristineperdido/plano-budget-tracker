@@ -108,6 +108,14 @@ export type SavingsConfig = {
   goalAmount: number;
 };
 
+/**
+ * The side pot that unspent days flow into. Named, because what it is for is
+ * the whole point of it — and renameable, because that will change.
+ */
+export type PotConfig = {
+  label: string;
+};
+
 export type SettlementConfig = {
   /**
    * What the log sheet offers by default. Settlement is opt-in, so this is
@@ -126,6 +134,7 @@ export type Config = {
   food: FoodConfig;
   savings: SavingsConfig;
   settlement: SettlementConfig;
+  pot: PotConfig;
 };
 
 // --------------------------------------------------------------- defaults
@@ -192,6 +201,7 @@ export const DEFAULT_CONFIG: Config = {
   },
   savings: { goalLabel: 'Emergency fund', goalAmount: 50000 },
   settlement: { defaultShare: 'none' },
+  pot: { label: 'For eat out' },
 };
 
 /** A category id that is no longer configured still has to render. */

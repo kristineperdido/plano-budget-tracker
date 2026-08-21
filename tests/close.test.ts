@@ -18,6 +18,7 @@ function entry(p: Partial<FoodEntry>): FoodEntry {
     share: null,
     owed_amount: null,
     settled_at: null,
+    from_pot: false,
     created_at: '2026-09-05T00:00:00Z',
     ...p,
   };
