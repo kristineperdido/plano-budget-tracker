@@ -11,12 +11,16 @@ const short = (m: string) => {
   return `${MONTHS[mm - 1]} ${String(y).slice(2)}`;
 };
 
-/** The same colour the runway gives this month, so the two read as one thing. */
+/**
+ * Colour follows the sign and nothing else: short is red, ahead is green.
+ *
+ * It used to encode which money covered the month, which meant a shortfall
+ * could render green — the same colour a surplus gets. Which kind of money is
+ * in play is said by the runway above and by opening the month out; it does not
+ * need to fight the sign for the same channel.
+ */
 function tintOf(m: MonthFlow): string {
-  if (m.short) return 'tint-brick';
-  if (m.needsBackup) return 'tint-brick';
-  if (m.needsUncertain) return 'tint-gold';
-  return m.gap < 0 ? 'tint-green' : 'tint-green';
+  return m.gap < 0 ? 'tint-brick' : 'tint-green';
 }
 
 /**
@@ -135,7 +139,7 @@ export function CashflowPanel({
                       {m.fromEarmark.map((e) => (
                         <div key={e.potId} className="flex items-baseline gap-2 py-1">
                           <span className="row-note flex-1">{e.potLabel}</span>
-                          <span className="tint-green">−{php(e.amount)}</span>
+                          <span>{php(e.amount)}</span>
                         </div>
                       ))}
                     </>
@@ -175,7 +179,7 @@ export function CashflowPanel({
                 : 'spent first'}
             </span>
           </span>
-          <span className="num tint-green text-[13px]">{php(flow.reserves.committed)}</span>
+          <span className="num text-[13px]">{php(flow.reserves.committed)}</span>
         </div>
         {flow.reserves.uncertain > 0 && (
           <div className="row">
@@ -187,7 +191,7 @@ export function CashflowPanel({
                   : 'not needed'}
               </span>
             </span>
-            <span className="num tint-gold text-[13px]">{php(flow.reserves.uncertain)}</span>
+            <span className="num text-[13px]">{php(flow.reserves.uncertain)}</span>
           </div>
         )}
         {flow.reserves.backup > 0 && (
@@ -196,7 +200,7 @@ export function CashflowPanel({
               The reserve
               <span className="row-meta block">meant to stay untouched</span>
             </span>
-            <span className="num tint-brick text-[13px]">{php(flow.reserves.backup)}</span>
+            <span className="num text-[13px]">{php(flow.reserves.backup)}</span>
           </div>
         )}
 
@@ -238,7 +242,7 @@ export function CashflowPanel({
                         {short(m.month)}
                       </span>
                       <span className="row-note flex-1">
-                        {m.keptForLater > 0.5 ? 'put by' : 'spent covering it'}
+                        {m.keptForLater > 0.5 ? 'added' : 'taken to cover it'}
                       </span>
                       <span className={`num ${m.keptForLater > 0.5 ? 'tint-green' : 'tint-brick'}`}>
                         {m.keptForLater > 0.5 ? '+' : '−'}
@@ -247,9 +251,9 @@ export function CashflowPanel({
                     </div>
                   ))}
                 <p className="row-meta mt-1">
-                  {php(flow.months.reduce((a, m) => a + m.keptForLater, 0))} put by, less{' '}
-                  {php(flow.months.reduce((a, m) => a + m.fromCarried, 0))} spent covering later
-                  months
+                  {php(flow.months.reduce((a, m) => a + m.keptForLater, 0))} added across the
+                  plan, {php(flow.months.reduce((a, m) => a + m.fromCarried, 0))} of it taken
+                  again by later months
                 </p>
               </div>
             )}
