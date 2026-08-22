@@ -185,6 +185,35 @@ const round = (x: number) => Math.round(x);
   assert.equal(computeCashflow(stray).months[0].out, before, 'the flag still bites');
 }
 
+// ---- 6b. Each month itemises to exactly its own total ----
+{
+  const f = computeCashflow(DEFAULT_CONFIG);
+  for (const m of f.months) {
+    const out = m.costLines.reduce((a, l) => a + l.amount, 0);
+    assert.equal(round(out), round(m.out), `${m.month} costs add up to its total`);
+    const inn = m.incomeLines.reduce((a, l) => a + l.amount, 0);
+    assert.equal(round(inn), round(m.income), `${m.month} income adds up to its total`);
+  }
+
+  // September carries the move-in, so it has the most lines and the largest one.
+  const sep = f.months[0];
+  assert.ok(sep.costLines.length > f.months[1].costLines.length);
+  assert.equal(sep.costLines[0].label, 'Security deposit', 'heaviest line first');
+  assert.equal(sep.costLines[sep.costLines.length - 1].label, 'Food (16 days)');
+
+  // A line the scheme drops stops appearing in the months that scheme covers.
+  const c = clone(DEFAULT_CONFIG);
+  c.schemes.push({
+    id: 'no-mama',
+    label: 'Without the allowance',
+    items: c.schemes[0].items.filter((i) => i.id !== 'mama'),
+  });
+  c.phases[1].schemeId = 'no-mama';
+  const g = computeCashflow(c);
+  assert.ok(g.months[0].costLines.some((l) => l.id === 'mama'), 'charged under the first scheme');
+  assert.ok(!g.months[4].costLines.some((l) => l.id === 'mama'), 'gone under the second');
+}
+
 // ---- 7. Food is charged on the days actually lived there ----
 {
   const f = computeCashflow(DEFAULT_CONFIG); // move-in 15 September

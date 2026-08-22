@@ -17,6 +17,9 @@ export function confidenceOf(m: MoneyIn): Confidence {
   return 'committed';
 }
 
+/** One entry in a month's breakdown. */
+export type FlowLine = { id: string; label: string; amount: number };
+
 export type MonthFlow = {
   index: number;
   /** Calendar month, YYYY-MM. */
@@ -24,6 +27,14 @@ export type MonthFlow = {
   phaseId: string | null;
   phaseLabel: string | null;
   income: number;
+  /** What made up the income, so the in-side itemises too. */
+  incomeLines: FlowLine[];
+  /**
+   * Every cost charged this month, by name — the lines the scheme in force
+   * puts on this month, plus food. Enough to check a total against reality
+   * rather than take it on trust.
+   */
+  costLines: FlowLine[];
   /** Line items charged this month. */
   bills: number;
   food: number;
@@ -150,6 +161,14 @@ export function computeCashflow(
       ? phase.income.her + phase.income.herSideHustle + phase.income.him
       : 0;
 
+    const incomeLines: FlowLine[] = [];
+    if (phase) {
+      if (phase.income.him > 0) incomeLines.push({ id: 'him', label: "Jhay's pay", amount: phase.income.him });
+      if (phase.income.her > 0) incomeLines.push({ id: 'her', label: "Tin's pay", amount: phase.income.her });
+      if (phase.income.herSideHustle > 0)
+        incomeLines.push({ id: 'hustle', label: 'Side hustle', amount: phase.income.herSideHustle });
+    }
+
     // The terms in force this month come from the phase's scheme.
     let bills = 0;
     const lines = [
@@ -159,15 +178,24 @@ export function computeCashflow(
       // the plan look worse than what is actually known.
       ...(options.includePending ? config.pending : []),
     ];
+    const costLines: FlowLine[] = [];
     for (const item of lines) {
       // Pending-ness is decided by which list a line is in, but honour the flag
       // too: a line that carries it should never be charged, wherever it sits.
       if ((item.pending && !options.includePending) || !activeIn(item, i)) continue;
       const s = applyPayer(item.amount, item.payer);
-      bills += s.her + s.him;
+      const cost = s.her + s.him;
+      bills += cost;
+      costLines.push({ id: item.id, label: item.label, amount: cost });
     }
+    // Heaviest first: a month that surprises you is usually one big line.
+    costLines.sort((a, b) => b.amount - a.amount);
 
-    const food = config.food.dailyBudget * daysCoveredInMonth(config.startDate, month);
+    const days = daysCoveredInMonth(config.startDate, month);
+    const food = config.food.dailyBudget * days;
+    if (food > 0) {
+      costLines.push({ id: 'food', label: `Food (${days} days)`, amount: food });
+    }
     const spend = bills + food;
     const gap = income - spend;
     if (gap < 0) totalGap += -gap;
@@ -203,6 +231,8 @@ export function computeCashflow(
       phaseId: phase?.id ?? null,
       phaseLabel: phase?.label ?? null,
       income,
+      incomeLines,
+      costLines,
       bills,
       food,
       out: spend,

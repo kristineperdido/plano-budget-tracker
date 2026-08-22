@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { php } from '@/lib/model';
 import { Card, Aside } from '@/components/Screen';
 import type { Cashflow, MonthFlow } from '@/lib/cashflow';
@@ -27,6 +28,8 @@ function tintOf(m: MonthFlow): string {
  * money covered each month is carried by the tint, matching the runway's key.
  */
 export function CashflowPanel({ flow }: { flow: Cashflow; potLabel?: string }) {
+  /** Which month is opened out. One at a time keeps the table readable. */
+  const [expanded, setExpanded] = useState<string | null>(null);
   const totalOut = flow.months.reduce((s, m) => s + m.out, 0);
   const totalIn = flow.months.reduce((s, m) => s + m.income, 0);
   const reservesTotal = flow.reserves.committed + flow.reserves.uncertain + flow.reserves.backup;
@@ -36,12 +39,12 @@ export function CashflowPanel({ flow }: { flow: Cashflow; potLabel?: string }) {
     <Card title="Month by month" tape="left">
       <div className="num" style={{ fontSize: 12.5 }}>
         <div
-          className="flex items-baseline gap-2 border-b pb-1"
+          className="flex items-baseline gap-2 border-b pb-1.5"
           style={{ borderColor: 'var(--rule)' }}
         >
           {/* Muted, not teal: the card title above is teal, and two teal
               small-caps rows running together flattened the hierarchy. */}
-          <span className="sign-label tint-muted" style={{ width: 52 }}>
+          <span className="sign-label tint-muted" style={{ width: 66 }}>
             Month
           </span>
           <span className="sign-label tint-muted flex-1 text-right">In</span>
@@ -49,25 +52,72 @@ export function CashflowPanel({ flow }: { flow: Cashflow; potLabel?: string }) {
           <span className="sign-label tint-muted flex-1 text-right">Short</span>
         </div>
 
-        {flow.months.map((m) => (
-          <div
-            key={m.month}
-            className="flex items-baseline gap-2 border-b border-dotted py-1.5"
-            style={{ borderColor: 'var(--rule)' }}
-          >
-            <span className="tint-muted" style={{ width: 52 }}>
-              {short(m.month)}
-            </span>
-            <span className="flex-1 text-right">{php(m.income)}</span>
-            <span className="flex-1 text-right">{php(m.out)}</span>
-            <span className={`flex-1 text-right ${tintOf(m)}`}>
-              {m.gap < 0 ? `−${php(-m.gap)}` : `+${php(m.gap)}`}
-            </span>
-          </div>
-        ))}
+        {flow.months.map((m) => {
+          const open = expanded === m.month;
+          return (
+            <div key={m.month} className="border-b border-dotted" style={{ borderColor: 'var(--rule)' }}>
+              <button
+                type="button"
+                className="flex w-full items-baseline gap-2 py-2.5 text-left"
+                style={{ background: 'transparent', border: 0 }}
+                aria-expanded={open}
+                onClick={() => setExpanded(open ? null : m.month)}
+              >
+                <span className="tint-muted flex items-baseline gap-1 whitespace-nowrap" style={{ width: 66 }}>
+                  <span
+                    aria-hidden
+                    style={{
+                      fontSize: 8,
+                      transform: open ? 'rotate(90deg)' : 'none',
+                      display: 'inline-block',
+                    }}
+                  >
+                    ▶
+                  </span>
+                  {short(m.month)}
+                </span>
+                <span className="flex-1 text-right">{php(m.income)}</span>
+                <span className="flex-1 text-right">{php(m.out)}</span>
+                <span className={`flex-1 text-right ${tintOf(m)}`}>
+                  {m.gap < 0 ? `−${php(-m.gap)}` : `+${php(m.gap)}`}
+                </span>
+              </button>
 
-        <div className="flex items-baseline gap-2 pt-2">
-          <span className="sign-label tint-muted" style={{ width: 52 }}>
+              {/* Every line, so a total that surprises you can be checked
+                  against reality rather than taken on trust. */}
+              {open && (
+                <div
+                  className="mb-2.5 ml-[10px] pl-3"
+                  style={{ borderLeft: '1px solid var(--rule)' }}
+                >
+                  <p className="sign-label tint-muted mt-1 mb-1">In</p>
+                  {m.incomeLines.length === 0 && <p className="row-note">nothing coming in</p>}
+                  {m.incomeLines.map((l) => (
+                    <div key={l.id} className="flex items-baseline gap-2 py-1">
+                      <span className="row-note flex-1">{l.label}</span>
+                      <span>{php(l.amount)}</span>
+                    </div>
+                  ))}
+
+                  <p className="sign-label tint-muted mt-2.5 mb-1">Out</p>
+                  {m.costLines.map((l) => (
+                    <div key={l.id} className="flex items-baseline gap-2 py-1">
+                      <span className="row-note flex-1">{l.label}</span>
+                      <span>{php(l.amount)}</span>
+                    </div>
+                  ))}
+
+                  <p className="row-meta mt-2">
+                    {m.phaseLabel} · {m.costLines.length} lines
+                  </p>
+                </div>
+              )}
+            </div>
+          );
+        })}
+
+        <div className="flex items-baseline gap-2 pt-3">
+          <span className="sign-label tint-muted" style={{ width: 66 }}>
             All
           </span>
           <span className="flex-1 text-right">{php(totalIn)}</span>
