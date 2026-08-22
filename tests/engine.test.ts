@@ -7,22 +7,20 @@ const clone = (c: Config): Config => JSON.parse(JSON.stringify(c));
 
 // ---- 1. The plan's output ----
 //
-// Reconciled against jhay's own cutoff spreadsheet. Four corrections came out
-// of that: income is 27,900 (13,950 a cutoff, twice a month), Mama's is 3,000,
-// and Frosty and drinking water stay split — his sheet charged him the whole of
-// both, and double-charged laundry and maintenance by putting a monthly figure
-// in each cutoff. The plan also runs five months now rather than two, to cover
-// the same window his sheet does.
+// The sample plan runs five months. Its figures are illustrative, but the
+// relationships between them are the ones the engine has to get right: one
+// earner, shared living costs, a pot of savings pointed at the move-in, and a
+// second income arriving partway through.
 {
   const r = computePlan(DEFAULT_CONFIG, { includeUncertain: true, includePending: false });
   console.log('herNet   ', Math.round(r.net.her));
   console.log('himNet   ', Math.round(r.net.him));
   console.log('combined ', Math.round(r.combined));
   assert.equal(r.months, 5);
-  assert.equal(Math.round(r.net.her), -24720);
-  assert.equal(Math.round(r.net.him), 16163);
-  assert.equal(Math.round(r.combined), -8558);
-  assert.equal(r.backup.him, 10819);
+  assert.equal(Math.round(r.net.her), -26675);
+  assert.equal(Math.round(r.net.him), 18325);
+  assert.equal(Math.round(r.combined), -8350);
+  assert.equal(r.backup.him, 9500);
 
   // Food is charged at the allowance for the days actually lived there:
   // 16 of September from the 15th, then whole months.
@@ -30,20 +28,20 @@ const clone = (c: Config): Config => JSON.parse(JSON.stringify(c));
 
   // The forecast still runs above the allowance, and says so rather than being
   // quietly priced in.
-  assert.equal(Math.round(r.foodVariance.gap), 514);
+  assert.equal(Math.round(r.foodVariance.gap), 86);
 }
 
 // ---- 2. Toggles actually move the model ----
 {
   const withU = computePlan(DEFAULT_CONFIG, { includeUncertain: true, includePending: false });
   const noU = computePlan(DEFAULT_CONFIG, { includeUncertain: false, includePending: false });
-  assert.equal(Math.round(withU.net.her - noU.net.her), 10000, "brother's money is worth exactly 10k to her");
+  assert.equal(Math.round(withU.net.her - noU.net.her), 8000, 'the uncertain money is worth exactly its face value to her');
   assert.equal(withU.net.him, noU.net.him, 'uncertain money is hers, not his');
 
   const withP = computePlan(DEFAULT_CONFIG, { includeUncertain: true, includePending: true });
-  // appliances 5000 split; termination fee is 0 until they learn it
-  assert.equal(Math.round(withU.net.her - withP.net.her), 2500);
-  assert.equal(Math.round(withU.net.him - withP.net.him), 2500);
+  // appliances 4000 split; termination fee is 0 until they learn it
+  assert.equal(Math.round(withU.net.her - withP.net.her), 2000);
+  assert.equal(Math.round(withU.net.him - withP.net.him), 2000);
 }
 
 // ---- 2b. An item scheduled outside the plan is reported, not silently dropped ----
@@ -86,10 +84,10 @@ const clone = (c: Config): Config => JSON.parse(JSON.stringify(c));
   assert.equal(Math.round(first.income.him + second.income.him), Math.round(whole.income.him));
 
   // Money-in belongs to the plan, not to a phase; crediting it to each would
-  // count the same 40,000 twice.
+  // count the same savings twice.
   assert.equal(first.moneyIn.her, 0, 'a slice does not claim the savings');
   assert.equal(second.moneyIn.her, 0);
-  assert.equal(whole.moneyIn.her, 40000 + 10000);
+  assert.equal(whole.moneyIn.her, 35000 + 8000);
 
   // The second phase is the one where she starts earning.
   assert.equal(first.income.her, 0);
@@ -133,7 +131,7 @@ assert.deepEqual(applyPayer(100, 'her'), { her: 100, him: 0 });
       from: '2026-09',
       label: 'Between jobs',
       months: 2,
-      income: [{ id: 'him', label: "Jhay's pay", owner: 'him' as const, amount: 27900 }, ],
+      income: [{ id: 'him', label: 'His pay', owner: 'him' as const, amount: 25000 }, ],
       schemeId: 'standard',
       foodPayer: 'split',
     },
@@ -142,7 +140,7 @@ assert.deepEqual(applyPayer(100, 'her'), { her: 100, him: 0 });
       from: '2026-11',
       label: 'She is working',
       months: 2,
-      income: [{ id: 'him', label: "Jhay's pay", owner: 'him' as const, amount: 27900 }, { id: 'her', label: "Tin's pay", owner: 'her' as const, amount: 20000 }, ],
+      income: [{ id: 'him', label: 'His pay', owner: 'him' as const, amount: 25000 }, { id: 'her', label: 'Her pay', owner: 'her' as const, amount: 20000 }, ],
       schemeId: 'even',
       foodPayer: 'split',
     },
@@ -153,12 +151,12 @@ assert.deepEqual(applyPayer(100, 'her'), { her: 100, him: 0 });
   // Rent is active months 1..3. Month 1 is his (phase 1); months 2-3 split.
   const rent = r.items.find((b) => b.item.id === 'rent')!;
   assert.equal(rent.occurrences, 3);
-  assert.equal(rent.split.him, 11500 + 11500 / 2 + 11500 / 2);
-  assert.equal(rent.split.her, 11500);
+  assert.equal(rent.split.him, 10000 + 10000 / 2 + 10000 / 2);
+  assert.equal(rent.split.her, 10000);
 
   // Her income only accrues in the second phase.
   assert.equal(r.income.her, 20000 * 2);
-  assert.equal(r.income.him, 27900 * 4);
+  assert.equal(r.income.him, 25000 * 4);
 }
 
 // ---- 6. Phase boundaries, from each phase's own start month ----
@@ -200,13 +198,13 @@ assert.deepEqual(applyPayer(100, 'her'), { her: 100, him: 0 });
 // ---- 7. Food forecast still matches the spec ----
 {
   const f = foodForecast(DEFAULT_CONFIG.food);
-  assert.equal(Math.round(f.perDay), 517);
-  assert.equal(Math.round(f.perMonth), 15514);
+  assert.equal(Math.round(f.perDay), 503);
+  assert.equal(Math.round(f.perMonth), 15086);
   assert.equal(f.budgetPerMonth, 15000);
 
   const coffee = f.extras.find((e) => e.id === 'coffee');
   assert.ok(coffee, 'coffee survives as a recurring extra');
-  assert.equal(Math.round(coffee.perSkippedRun), 557);
+  assert.equal(Math.round(coffee.perSkippedRun), 536);
   assert.equal(Math.round(f.extrasPerDay), Math.round(coffee.perDay));
 }
 
@@ -250,18 +248,18 @@ assert.deepEqual(applyPayer(100, 'her'), { her: 100, him: 0 });
   // The exact shape stored before coffee became one extra among many.
   const legacy = {
     dayTypes: [
-      { id: 'tipid', label: 'Tipid', amount: 160, perWeek: 2 },
-      { id: 'mid', label: 'Not-so-tipid', amount: 450, perWeek: 3 },
-      { id: 'lax', label: 'Not tipid at all', amount: 780, perWeek: 2 },
+      { id: 'tipid', label: 'Tipid', amount: 150, perWeek: 2 },
+      { id: 'mid', label: 'Not-so-tipid', amount: 445, perWeek: 3 },
+      { id: 'lax', label: 'Not tipid at all', amount: 755, perWeek: 2 },
     ],
-    coffee: { cost: 130, perWeek: 3 },
+    coffee: { cost: 125, perWeek: 3 },
     daysPerMonth: 30,
     dailyBudget: 500,
   } as unknown as LegacyFoodConfig;
 
   const migrated = migrateFood(legacy);
   assert.equal(migrated.extras.length, 1, 'coffee is lifted into extras');
-  assert.equal(migrated.extras[0].cost, 130);
+  assert.equal(migrated.extras[0].cost, 125);
   assert.equal(migrated.extras[0].perWeek, 3);
   assert.ok(migrated.categories.length > 0, 'categories are seeded');
   assert.equal(
@@ -272,8 +270,8 @@ assert.deepEqual(applyPayer(100, 'her'), { her: 100, him: 0 });
 
   // The whole point: the forecast is unchanged by the migration.
   const f = foodForecast(migrated);
-  assert.equal(Math.round(f.perDay), 517);
-  assert.equal(Math.round(f.perMonth), 15514);
+  assert.equal(Math.round(f.perDay), 503);
+  assert.equal(Math.round(f.perMonth), 15086);
 }
 
 // ---- 8. Any number of named sources feed the right person ----
@@ -284,7 +282,7 @@ assert.deepEqual(applyPayer(100, 'her'), { her: 100, him: 0 });
   c.phases[0].income.push({ id: 'hustle', label: 'Side hustle', owner: 'her', amount: 5000 });
   const r = computePlan(c, { includeUncertain: true, includePending: false });
   // Her baseline net, plus the side hustle for the two months of phase one.
-  assert.equal(Math.round(r.net.her), -24720 + 5000 * 2);
+  assert.equal(Math.round(r.net.her), -26675 + 5000 * 2);
 
   // A second source on the same person stacks rather than replacing.
   const two = clone(c);

@@ -22,9 +22,9 @@ const round = (x: number) => Math.round(x);
   }
 
   // Reserves are separated by how much they can be relied on.
-  assert.equal(f.reserves.committed, 40000, 'her savings are the only money in hand');
-  assert.equal(f.reserves.uncertain, 10000, "the brother's repayment is a maybe");
-  assert.equal(f.reserves.backup, 10819, 'his savings are held back');
+  assert.equal(f.reserves.committed, 35000, 'her savings are the only money in hand');
+  assert.equal(f.reserves.uncertain, 8000, 'the money owed to her is a maybe');
+  assert.equal(f.reserves.backup, 9500, 'his savings are held back');
 }
 
 // ---- 2. How far the money actually goes ----
@@ -57,12 +57,12 @@ const round = (x: number) => Math.round(x);
   const f = computeCashflow(DEFAULT_CONFIG);
   const sep = f.months[0];
 
-  assert.equal(round(sep.paidFromEarmark), 39083, 'the whole move-in comes from the pot');
+  assert.equal(round(sep.paidFromEarmark), 34100, 'the whole move-in comes from the pot');
   assert.equal(sep.fromEarmark[0].potLabel, 'Her savings');
 
   const hers = f.pots.find((p) => p.id === 'her-savings')!;
-  assert.equal(round(hers.spentOnEarmark), 39083);
-  assert.equal(round(hers.spentGenerally), 917, 'the remainder is spendable like anything else');
+  assert.equal(round(hers.spentOnEarmark), 34100);
+  assert.equal(round(hers.spentGenerally), 900, 'the remainder is spendable like anything else');
 
   // Nothing is created or destroyed: what every pot holds, less what was spent,
   // is what is left.
@@ -92,11 +92,11 @@ const round = (x: number) => Math.round(x);
     'you cannot end with more savings than you ever had',
   );
 
-  // Without the earmark the same month reads as a 25,478 shortfall.
+  // Without the earmark the same month reads as a 21,530 shortfall.
   const bare = clone(DEFAULT_CONFIG);
   bare.moneyIn = bare.moneyIn.map((m) => ({ ...m, earmark: undefined }));
   const g = computeCashflow(bare);
-  assert.equal(round(g.months[0].gap), -25478);
+  assert.equal(round(g.months[0].gap), -21530);
   assert.equal(round(g.reservesLeft), round(f.reservesLeft), 'and ends in the same place either way');
 }
 
@@ -158,7 +158,7 @@ const round = (x: number) => Math.round(x);
 
   const withUncertain = computeCashflow(DEFAULT_CONFIG, all);
   const without = computeCashflow(DEFAULT_CONFIG, { ...all, includeUncertain: false });
-  assert.equal(withUncertain.reserves.uncertain, 10000);
+  assert.equal(withUncertain.reserves.uncertain, 8000);
   assert.equal(without.reserves.uncertain, 0, 'the repayment stops counting');
   assert.notEqual(without.firstMonthShort, withUncertain.firstMonthShort, 'and the runway shortens');
 
@@ -363,9 +363,9 @@ const round = (x: number) => Math.round(x);
 {
   const c = clone(DEFAULT_CONFIG);
   c.moneyIn = [
-    { id: 'a', label: 'Savings', amount: 40000, owner: 'her' },
+    { id: 'a', label: 'Savings', amount: 30000, owner: 'her' },
     { id: 'b', label: 'Maybe bonus', amount: 9000, owner: 'him', uncertain: true },
-    { id: 'c', label: 'Emergency', amount: 10819, owner: 'her', backup: true },
+    { id: 'c', label: 'Emergency', amount: 7500, owner: 'her', backup: true },
   ];
 
   const shown = (o: CashflowOptions) => {
@@ -387,13 +387,13 @@ const round = (x: number) => Math.round(x);
       const o = { includeUncertain, useBackup, includePending: false };
       assert.equal(round(total(o)), round(shown(o)), `sum matches rows @ ${includeUncertain}/${useBackup}`);
       // And it never exceeds the money that actually exists.
-      assert.ok(total(o) <= 59819.005);
+      assert.ok(total(o) <= 46500.005);
     }
   }
 
   // Concretely: with both toggles off only the committed pot is left.
-  assert.equal(round(total({ includeUncertain: false, useBackup: false, includePending: false })), 40000);
-  assert.equal(round(total({ includeUncertain: true, useBackup: true, includePending: false })), 59819);
+  assert.equal(round(total({ includeUncertain: false, useBackup: false, includePending: false })), 30000);
+  assert.equal(round(total({ includeUncertain: true, useBackup: true, includePending: false })), 46500);
 }
 
 
@@ -402,7 +402,7 @@ const round = (x: number) => Math.round(x);
 // different outcomes; both used to print "0". savingsEnd separates them.
 {
   const c = clone(DEFAULT_CONFIG);
-  c.moneyIn = [{ id: 'a', label: 'Savings', amount: 40000, owner: 'her' }];
+  c.moneyIn = [{ id: 'a', label: 'Savings', amount: 30000, owner: 'her' }];
   const o = { includeUncertain: false, includePending: false, useBackup: true };
 
   // Overrun: savings gone AND months left uncovered.
@@ -422,7 +422,7 @@ const round = (x: number) => Math.round(x);
   assert.equal(round(g.savingsEnd), round(g.reservesLeft));
 
   // The two can never both be non-zero: reserves are spent before short is called.
-  for (const inc of [0, 15000, 27900, 45000, 60000, 90000]) {
+  for (const inc of [0, 15000, 26000, 45000, 60000, 90000]) {
     const t = clone(c);
     t.phases.forEach((p) => p.income.forEach((s) => (s.amount = inc)));
     const f = computeCashflow(t, o);

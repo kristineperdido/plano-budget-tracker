@@ -56,7 +56,7 @@ export function foodForecast(food: FoodConfig) {
  * What a line item costs the household, as opposed to its face value. An
  * 'each' item is paid in full by both of them, so a 500 keycard removes 1,000
  * from the household. Summing raw amounts instead is what made the Ledger's
- * move-in subtotal read 38,583 while the engine charged 39,083.
+ * move-in subtotal disagree with the engine by exactly one keycard.
  */
 export function householdCost(item: LineItem, payer: Payer = item.payer): number {
   const s = applyPayer(item.amount, payer);
@@ -137,7 +137,7 @@ function isActive(item: LineItem, month: number): boolean {
 export type Window = { from: number; to: number };
 
 export type Options = {
-  /** Brother's repayment and anything else flagged uncertain. */
+  /** Money owed to them, and anything else flagged uncertain. */
   includeUncertain: boolean;
   /** The pending tray: appliances, termination fee. */
   includePending: boolean;

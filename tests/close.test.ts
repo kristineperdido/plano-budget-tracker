@@ -87,18 +87,18 @@ const JHAY = 'jhay@example.com';
 // ---- 4. A bill coming in under the plan adds to the surplus ----
 {
   const c = clone(DEFAULT_CONFIG);
-  // Electric is planned at 2,500 from month 1, which is October.
+  // Electric is planned at 2,200 from month 1, which is October.
   const r = closeMonth(c, '2026-10', [], [bill('electric', '2026-10', 1980)], '2026-11-02');
 
   const electric = r.bills.find((b) => b.item.id === 'electric');
   assert.ok(electric, 'electric is due in October');
-  assert.equal(electric.planned, 2500);
+  assert.equal(electric.planned, 2200);
   assert.equal(electric.actual, 1980);
-  assert.equal(electric.saved, 520);
-  assert.equal(r.billsSaved, 520);
+  assert.equal(electric.saved, 220);
+  assert.equal(r.billsSaved, 220);
 
   // 31 days in October, nothing spent on food.
-  assert.equal(r.surplus, 500 * 31 + 520);
+  assert.equal(r.surplus, 500 * 31 + 220);
 }
 
 // ---- 5. A bill coming in over the plan eats into the surplus ----
@@ -106,7 +106,7 @@ const JHAY = 'jhay@example.com';
   const c = clone(DEFAULT_CONFIG);
   const under = closeMonth(c, '2026-10', [], [bill('electric', '2026-10', 1980)], '2026-11-02');
   const over = closeMonth(c, '2026-10', [], [bill('electric', '2026-10', 3200)], '2026-11-02');
-  assert.equal(over.billsSaved, -700);
+  assert.equal(over.billsSaved, -1000);
   assert.equal(under.surplus - over.surplus, 1220, 'the swing is the full difference');
 }
 

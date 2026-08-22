@@ -63,7 +63,7 @@ const OPTS = { includeUncertain: true, includePending: false };
   const mamaAfter = without.items.find((b) => b.item.id === 'mama')!;
   assert.equal(mamaBefore.occurrences, 5, 'charged every month of the plan');
   assert.equal(mamaAfter.occurrences, 2, 'only while the first scheme is in force');
-  assert.equal(round(withIt.combined - without.combined), -3000 * 3);
+  assert.equal(round(withIt.combined - without.combined), -2500 * 3);
 }
 
 // ---- 4. Ids are what carry across schemes, so recorded figures still resolve ----
@@ -120,7 +120,7 @@ const OPTS = { includeUncertain: true, includePending: false };
   assert.equal(round(sept(before).out), round(sept(after).out), 'the first phase is untouched');
   assert.equal(
     round(dec(before).out - dec(after).out),
-    6500,
+    5000,
     'and the second phase pays the cheaper rent',
   );
 }

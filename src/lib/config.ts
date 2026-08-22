@@ -232,40 +232,40 @@ export const DEFAULT_CONFIG: Config = {
   schemes: [
     {
       id: 'standard',
-      label: 'Jhay carries it',
+      label: 'One earner',
       items: [
-      { id: 'deposit',   label: 'Security deposit', amount: 23000, cadence: 'onetime', startMonth: 0, payer: 'her',   group: 'movein', note: "2 months' rent" },
-      { id: 'advance',   label: 'Advance',          amount: 11500, cadence: 'onetime', startMonth: 0, payer: 'her',   group: 'movein', note: 'prepays Month 0 rent' },
+      { id: 'deposit',   label: 'Security deposit', amount: 20000, cadence: 'onetime', startMonth: 0, payer: 'her',   group: 'movein', note: "2 months' rent" },
+      { id: 'advance',   label: 'Advance',          amount: 10000, cadence: 'onetime', startMonth: 0, payer: 'her',   group: 'movein', note: 'prepays Month 0 rent' },
       { id: 'keycard',   label: 'Keycard',          amount: 500,   cadence: 'onetime', startMonth: 0, payer: 'each',  group: 'movein', note: '₱500 each, not split' },
-      { id: 'petfee',    label: 'Pet fee',          amount: 3000,  cadence: 'onetime', startMonth: 0, payer: 'split', group: 'movein', note: 'annual, per lease' },
-      { id: 'interviews',label: 'Interview trips',  amount: 583,   cadence: 'onetime', startMonth: 0, payer: 'her',   group: 'personal', note: '3 trips x (₱70 fare + lunch)' },
+      { id: 'petfee',    label: 'Pet fee',          amount: 2500,  cadence: 'onetime', startMonth: 0, payer: 'split', group: 'movein', note: 'annual, per lease' },
+      { id: 'interviews',label: 'Interview trips',  amount: 600,   cadence: 'onetime', startMonth: 0, payer: 'her',   group: 'personal', note: '3 trips x (fare + lunch)' },
 
-      { id: 'rent',      label: 'Rent',        amount: 11500, cadence: 'monthly', startMonth: 1, payer: 'him', group: 'housing', note: 'Month 0 covered by the advance' },
-      { id: 'electric',  label: 'Electric',    amount: 2500,  cadence: 'monthly', startMonth: 1, payer: 'him', group: 'housing', note: 'first bill covers Sept–Oct' },
-      { id: 'water',     label: 'Water',       amount: 500,   cadence: 'monthly', startMonth: 1, payer: 'him', group: 'housing', note: 'same billing lag' },
-      { id: 'wifi',      label: 'WiFi',        amount: 1000,  cadence: 'monthly', startMonth: 0, payer: 'him', group: 'housing', note: 'prepaid' },
-      { id: 'laundry',   label: 'Laundry',     amount: 640,   cadence: 'monthly', startMonth: 0, payer: 'him', group: 'living',  note: '₱150–170/week' },
-      { id: 'maintenance', label: 'Maintenance', amount: 500, cadence: 'monthly', startMonth: 0, payer: 'him', group: 'housing' },
-      { id: 'mama',      label: "Mama's bills", amount: 3000, cadence: 'monthly', startMonth: 0, payer: 'him', group: 'personal', note: 'per jhay\u2019s own cutoff sheet' },
-      { id: 'frosty',    label: 'Frosty',      amount: 1069,  cadence: 'monthly', startMonth: 0, payer: 'split', group: 'living', note: 'dry ₱777 + wet ₱206 + litter ₱86' },
-      { id: 'drinking',  label: 'Drinking water', amount: 86, cadence: 'monthly', startMonth: 0, payer: 'split', group: 'living', note: '~2 weeks per gallon' },
+      { id: 'rent',      label: 'Rent',        amount: 10000, cadence: 'monthly', startMonth: 1, payer: 'him', group: 'housing', note: 'Month 0 covered by the advance' },
+      { id: 'electric',  label: 'Electric',    amount: 2200,  cadence: 'monthly', startMonth: 1, payer: 'him', group: 'housing', note: 'first bill covers two months' },
+      { id: 'water',     label: 'Water',       amount: 450,   cadence: 'monthly', startMonth: 1, payer: 'him', group: 'housing', note: 'same billing lag' },
+      { id: 'wifi',      label: 'WiFi',        amount: 900,   cadence: 'monthly', startMonth: 0, payer: 'him', group: 'housing', note: 'prepaid' },
+      { id: 'laundry',   label: 'Laundry',     amount: 600,   cadence: 'monthly', startMonth: 0, payer: 'him', group: 'living',  note: 'about weekly' },
+      { id: 'maintenance', label: 'Maintenance', amount: 400, cadence: 'monthly', startMonth: 0, payer: 'him', group: 'housing' },
+      { id: 'mama',      label: 'Family support', amount: 2500, cadence: 'monthly', startMonth: 0, payer: 'him', group: 'personal', note: 'his own standing obligation' },
+      { id: 'frosty',    label: 'The cat',     amount: 950,   cadence: 'monthly', startMonth: 0, payer: 'split', group: 'living', note: 'food and litter' },
+      { id: 'drinking',  label: 'Drinking water', amount: 80, cadence: 'monthly', startMonth: 0, payer: 'split', group: 'living', note: '~2 weeks per gallon' },
       ],
     },
   ],
   pending: [
     { id: 'termination', label: 'Early termination fee', amount: 0, cadence: 'onetime', startMonth: 0, payer: 'split', group: 'movein', pending: true, note: 'unknown — check the contract before signing' },
-    { id: 'appliances',  label: 'Appliances', amount: 5000, cadence: 'onetime', startMonth: 0, payer: 'split', group: 'movein', pending: true, estimateLow: 3000, estimateHigh: 7000, note: 'fridge, wardrobe' },
+    { id: 'appliances',  label: 'Appliances', amount: 4000, cadence: 'onetime', startMonth: 0, payer: 'split', group: 'movein', pending: true, estimateLow: 2500, estimateHigh: 6000, note: 'fridge, wardrobe' },
   ],
   phases: [
     {
       id: 'gap',
       label: 'Between jobs',
-      note: 'tin is not earning yet, so jhay carries the rent and the bills',
+      note: 'only one income, so he carries the rent and the bills',
       from: '2026-09',
       months: 2,
       income: [
-        // ₱13,950 a cutoff, twice a month.
-        { id: 'jhay-pay', label: "Jhay's pay", owner: 'him', amount: 27900 },
+        // Paid twice a month, in equal cutoffs.
+        { id: 'jhay-pay', label: 'His pay', owner: 'him', amount: 26000 },
       ],
       schemeId: 'standard',
       foodPayer: 'split',
@@ -276,7 +276,7 @@ export const DEFAULT_CONFIG: Config = {
       note: 'still no second income — this is the stretch that shows how long the money lasts',
       from: '2026-11',
       months: 3,
-      income: [{ id: 'jhay-pay', label: "Jhay's pay", owner: 'him', amount: 27900 }],
+      income: [{ id: 'jhay-pay', label: 'His pay', owner: 'him', amount: 26000 }],
       schemeId: 'standard',
       foodPayer: 'split',
     },
@@ -285,21 +285,21 @@ export const DEFAULT_CONFIG: Config = {
     {
       id: 'her-savings',
       label: 'Her savings',
-      amount: 40000,
+      amount: 35000,
       owner: 'her',
-      // Put aside for getting in the door — ₱40,000 against ₱39,083 of it.
+      // Put aside for getting in the door, and only just enough to cover it.
       earmark: ['deposit', 'advance', 'petfee', 'keycard', 'interviews'],
     },
-    { id: 'brother',     label: "Brother's repayment", amount: 10000, owner: 'her', uncertain: true, note: '₱20,000 owed; ₱10,000 realistic in the window' },
-    { id: 'his-savings', label: 'His savings',    amount: 10819, owner: 'him', backup: true, note: 'Aug 25 – Sep 25 cutoff, not earmarked' },
+    { id: 'brother',     label: 'Money owed to her', amount: 8000, owner: 'her', uncertain: true, note: 'only part of it is realistic inside the window' },
+    { id: 'his-savings', label: 'His savings',    amount: 9500, owner: 'him', backup: true, note: 'one cutoff put aside, not earmarked' },
   ],
   food: {
     dayTypes: [
-      { id: 'lean',   label: 'Tipid',            amount: 160, perWeek: 2 },
-      { id: 'normal', label: 'Not-so-tipid',     amount: 450, perWeek: 3 },
-      { id: 'loose',  label: 'Not tipid at all', amount: 780, perWeek: 2 },
+      { id: 'lean',   label: 'Tipid',            amount: 150, perWeek: 2 },
+      { id: 'normal', label: 'Not-so-tipid',     amount: 445, perWeek: 3 },
+      { id: 'loose',  label: 'Not tipid at all', amount: 755, perWeek: 2 },
     ],
-    extras: [{ id: 'coffee', label: 'Coffee', cost: 130, perWeek: 3 }],
+    extras: [{ id: 'coffee', label: 'Coffee', cost: 125, perWeek: 3 }],
     categories: [
       // `meals` is what a whole-day log lands under; `extras` catches a
       // recurring extra that has no category of its own.

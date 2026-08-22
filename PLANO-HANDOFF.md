@@ -7,15 +7,15 @@ A shared-living budget + daily food tracker for two people. Built as a Claude ar
 ## Stack
 
 - **Next.js (App Router) + TypeScript + Tailwind**
-- **Supabase** — project `shared-living-budget`, ref `pqrsuywmbdxlhmmsmaxp`, region `ap-southeast-1`, free tier
+- **Supabase** — one project, `ap-southeast-1`, free tier
 - **Vercel** for hosting (free)
 - Mobile-first. Both partners open it on their phones.
 
 ### Supabase connection
 
 ```
-NEXT_PUBLIC_SUPABASE_URL=https://pqrsuywmbdxlhmmsmaxp.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=sb_publishable_pQyZmaVODxOcNefYawfArw_Jil1er-F
+NEXT_PUBLIC_SUPABASE_URL=https://<project-ref>.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=<publishable key>
 ```
 
 ### Existing schema (already migrated)
@@ -51,17 +51,21 @@ RLS is enabled with permissive anon policies (no auth). **Worth revisiting** —
 
 Two people moving in together mid-September. She is between jobs and expects ~2 months without income. The plan covers that 2-month stretch.
 
+> Figures below are **illustrative sample data**, matching `DEFAULT_CONFIG` in
+> `src/lib/config.ts`. They are here to show the shape of the model, not anyone's
+> actual finances. Real figures live in the database, never in the repo.
+
 ### Her
 - Income: ₱0 during the stretch
-- Savings: ₱40,000
-- Brother owes her ₱20,000; ₱10,000 realistically repayable inside the window (**flagged uncertain**)
+- Savings: ₱35,000
+- Money owed to her: ₱8,000 realistically repayable inside the window (**flagged uncertain**)
 - Pays the entire move-in cost herself
 
-### Him (BF)
-- Income: ₱27,400/month (₱13,700 × 2 cutoffs, 10th & 25th)
-- Savings: ₱10,819 (Aug 25–Sep 25 cutoff), not earmarked
-- Existing obligation: ₱2,300/month to his mother (₱1,500 allowance + ₱800 WiFi)
-- Personal allowance ₱6,000/month — **his food half is drawn from this pot, not on top of it**
+### Him
+- Income: ₱26,000/month (₱13,000 × 2 cutoffs, 10th & 25th)
+- Savings: ₱9,500, not earmarked
+- Existing obligation: ₱2,500/month in family support
+- Personal allowance ₱5,000/month — **his food half is drawn from this pot, not on top of it**
 - Covers 100% of household bills during her unemployed stretch
 
 ---
@@ -70,30 +74,30 @@ Two people moving in together mid-September. She is between jobs and expects ~2 
 
 | Item | Amount | Cadence | Payer | Notes |
 |---|---|---|---|---|
-| Security deposit | ₱23,000 | one-time | Her | 2 months' rent |
-| Advance | ₱11,500 | one-time | Her | prepays Month 0 rent |
+| Security deposit | ₱20,000 | one-time | Her | 2 months' rent |
+| Advance | ₱10,000 | one-time | Her | prepays Month 0 rent |
 | Keycard | ₱500 | one-time | Each pays own | not split — ₱500 each |
-| Pet fee | ₱3,000 | one-time | 50/50 | annual, per lease contract |
-| Rent | ₱11,500 | monthly, **from Month 1** | Him | Month 0 already covered by advance |
-| Electric | ₱2,500 | monthly, **from Month 1** | Him | first bill covers Sept–Oct usage |
-| Water | ₱500 | monthly, **from Month 1** | Him | same billing lag |
-| WiFi | ₱1,000 | monthly, from Month 0 | Him | prepaid, recurring every month |
-| Laundry | ~₱640 | monthly, from Month 0 | Him | ₱150–170/week × 4 |
-| Maintenance | ₱500 | monthly, from Month 0 | Him | |
-| Mama's bills | ₱2,300 | monthly, from Month 0 | Him | his own obligation |
-| Frosty (cat) | ~₱1,069 | monthly, from Month 0 | 50/50 | see breakdown below |
-| Drinking water | ~₱86 | monthly, from Month 0 | 50/50 | ₱30–50/gallon, ~2 weeks per gallon |
-| Interview trips | ~₱583 | one-time | Her | 3 trips × (₱70 transport + ₱99–150 lunch) |
+| Pet fee | ₱2,500 | one-time | 50/50 | annual, per lease contract |
+| Rent | ₱10,000 | monthly, **from Month 1** | Him | Month 0 already covered by advance |
+| Electric | ₱2,200 | monthly, **from Month 1** | Him | first bill covers two months' usage |
+| Water | ₱450 | monthly, **from Month 1** | Him | same billing lag |
+| WiFi | ₱900 | monthly, from Month 0 | Him | prepaid, recurring every month |
+| Laundry | ~₱600 | monthly, from Month 0 | Him | roughly weekly |
+| Maintenance | ₱400 | monthly, from Month 0 | Him | |
+| Family support | ₱2,500 | monthly, from Month 0 | Him | his own standing obligation |
+| The cat | ~₱950 | monthly, from Month 0 | 50/50 | see breakdown below |
+| Drinking water | ~₱80 | monthly, from Month 0 | 50/50 | ~2 weeks per gallon |
+| Interview trips | ~₱600 | one-time | Her | 3 trips × (transport + lunch) |
 | Food | forecast | monthly | 50/50 | derived — see food model |
 
 ### Pending tray (excluded from math until confirmed)
 - Early termination fee — amount unknown, must be checked before signing
-- Appliances (fridge, wardrobe) — ₱3,000–7,000 estimate
+- Appliances (fridge, wardrobe) — ₱2,500–6,000 estimate
 
-### Frosty's monthly cost (normalize from purchase cycles)
-- Dry food ₱570 per 2×1kg bags, lasts ~22 days → ₱777/mo
-- Wet food ₱411, lasts ~2 months → ₱206/mo
-- Litter ₱129/bag, lasts ~1.5 months → ₱86/mo
+### The cat's monthly cost (normalize from purchase cycles)
+- Dry food, bought roughly every 3 weeks → ~₱690/mo
+- Wet food, lasts ~2 months → ~₱185/mo
+- Litter, lasts ~1.5 months → ~₱75/mo
 
 ---
 
@@ -103,17 +107,17 @@ Three day types, plus coffee as a **separate layer on top** (coffee is independe
 
 | Day type | Cost/day (both people) | Days/week |
 |---|---|---|
-| Tipid | ₱160 | 2 |
-| Not-so-tipid | ₱450 | 3 |
-| Not tipid at all | ₱780 | 2 |
+| Tipid | ₱150 | 2 |
+| Not-so-tipid | ₱445 | 3 |
+| Not tipid at all | ₱755 | 2 |
 
 Composition, for reference:
-- **Tipid** — ₱60 bread breakfast, lunch and dinner from existing grocery stock (~₱0), ₱100 merienda
-- **Not-so-tipid** — ₱150 breakfast, ₱200 groceries covering both lunch and dinner, ₱100 merienda
-- **Not tipid at all** — ₱200 breakfast (₱100 each), ₱240 eat-out lunch, ₱240 eat-out dinner, ₱100 merienda
+- **Tipid** — ₱50 bread breakfast, lunch and dinner from existing grocery stock (~₱0), ₱100 merienda
+- **Not-so-tipid** — ₱145 breakfast, ₱200 groceries covering both lunch and dinner, ₱100 merienda
+- **Not tipid at all** — ₱195 breakfast, ₱230 eat-out lunch, ₱230 eat-out dinner, ₱100 merienda
 - The ₱100 afternoon merienda is constant across all three
 
-**Coffee:** ₱130 per buy-out run, 2–4 runs/week (use 3 as default). Non-run days use Milo/UCC sachets at no marginal cost.
+**Coffee:** ₱125 per buy-out run, 2–4 runs/week (use 3 as default). Non-run days use Milo/UCC sachets at no marginal cost.
 
 ### Derived forecast
 
@@ -123,7 +127,7 @@ coffeePerDay = coffee.cost × coffee.perWeek / 7
 perDay       = foodPerDay + coffeePerDay
 ```
 
-At the defaults: ₱461/day meals + ₱56/day coffee = **₱517/day**, or ₱15,510/month against a ₱15,000 budget (₱500/day × 30). Slightly over — coffee frequency is the main lever.
+At the defaults: ₱449/day meals + ₱54/day coffee = **₱503/day**, or ₱15,086/month against a ₱15,000 budget (₱500/day × 30). Slightly over — coffee frequency is the main lever.
 
 ### Buffer mechanic (the point of daily logging)
 
@@ -153,18 +157,18 @@ combined = herNet + himNet
 ```
 
 **Toggles that must re-run the whole model:**
-- *Include uncertain money* — brother's ₱10,000 in or out
+- *Include uncertain money* — the uncertain ₱8,000 in or out
 - *Include pending items* — appliances / termination fee in or out
 
-### Current output (defaults, uncertain money included, pending excluded)
-- Her: roughly −₱3,700 (deficit)
-- Him: roughly +₱13,000 (surplus, income only)
-- Combined: roughly +₱9,000
-- Plus his ₱10,819 savings as untouched backup
+### Current output (sample defaults, uncertain money included, pending excluded)
+- Her: −₱26,675 (deficit — she carries the whole move-in)
+- Him: +₱18,325 (surplus, income only)
+- Combined: −₱8,350
+- Plus his ₱9,500 savings as untouched backup
 
 ### Three options being weighed
 - **A — Side hustle.** She earns a little during the gap. Viable; the amount needed is small.
-- **B — Wait until November.** BF saves ~₱16,000 more first. Most comfortable, but the ₱11,500 rent may not still be available and it delays move-in ~1.5–2 months.
+- **B — Wait a couple of months.** He saves ~₱15,000 more first. Most comfortable, but the rent at that price may not still be available and it delays move-in ~1.5–2 months.
 - **C — Rent now, no hustle.** Conditional — works only if his surplus covers her gap.
 
 ---
