@@ -653,10 +653,19 @@ export default function LedgerPage() {
                         onBlur={(e) => patch({ label: e.target.value }, `Renamed to ${e.target.value}`)}
                       />
 
-                      {(m.uncertain || m.backup || (m.note && !open)) && (
+                      {(m.uncertain ||
+                        m.backup ||
+                        (m.earmark ?? []).length > 0 ||
+                        (m.note && !open)) && (
                         <span className="mt-1 flex flex-wrap items-center gap-1.5">
                           {m.uncertain && <span className="stamp stamp--gold">Uncertain</span>}
                           {m.backup && <span className="stamp stamp--muted">Backup</span>}
+                          {(m.earmark ?? []).length > 0 && !open && (
+                            <span className="row-meta">
+                              put aside for {(m.earmark ?? []).length}{' '}
+                              {(m.earmark ?? []).length === 1 ? 'cost' : 'costs'}
+                            </span>
+                          )}
                           {m.note && !open && <span className="row-note">{m.note}</span>}
                         </span>
                       )}

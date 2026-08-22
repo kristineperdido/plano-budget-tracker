@@ -48,7 +48,9 @@ export function CashflowPanel({
   const totalIn = shown.reduce((s, m) => s + m.income, 0);
   const shownGap = shown.reduce((s, m) => s + Math.max(0, -m.gap), 0);
   const reservesTotal = flow.reserves.committed + flow.reserves.uncertain + flow.reserves.backup;
-  const leftAtEnd = reservesTotal - flow.totalGap;
+  // Read off the pots rather than reserves minus the gap: earmarked money pays
+  // costs directly and never shows up as a gap, so the subtraction overstates.
+  const leftAtEnd = flow.reservesLeft;
 
   return (
     <Card title="Month by month" amount={label} tape="left">
@@ -122,6 +124,20 @@ export function CashflowPanel({
                     </div>
                   ))}
 
+                  {/* Money that was put aside for these costs. Shown apart from
+                      the shortfall, because it is not one. */}
+                  {m.fromEarmark.length > 0 && (
+                    <>
+                      <p className="sign-label tint-muted mt-2.5 mb-1">Paid from</p>
+                      {m.fromEarmark.map((e) => (
+                        <div key={e.potId} className="flex items-baseline gap-2 py-1">
+                          <span className="row-note flex-1">{e.potLabel}</span>
+                          <span className="tint-green">−{php(e.amount)}</span>
+                        </div>
+                      ))}
+                    </>
+                  )}
+
                   <p className="row-meta mt-2">
                     {m.phaseLabel} · {m.costLines.length} lines
                   </p>
@@ -150,7 +166,11 @@ export function CashflowPanel({
         <div className="row">
           <span className="row-label">
             Money you can count on
-            <span className="row-meta block">spent first</span>
+            <span className="row-meta block">
+              {flow.pots.some((p) => p.spentOnEarmark > 0)
+                ? `${php(flow.pots.reduce((a, p) => a + p.spentOnEarmark, 0))} of it was put aside for named costs`
+                : 'spent first'}
+            </span>
           </span>
           <span className="num tint-green text-[13px]">{php(flow.reserves.committed)}</span>
         </div>
@@ -187,6 +207,8 @@ export function CashflowPanel({
 
         <Aside tilt={-1.5} tint={leftAtEnd < 0 ? 'brick' : 'gold'} className="mt-2">
           {php(reservesTotal)} of savings against {php(flow.totalGap)} of shortfall
+          {flow.pots.some((p) => p.spentOnEarmark > 0) &&
+            `, plus ${php(flow.pots.reduce((a, p) => a + p.spentOnEarmark, 0))} it was put aside for`}
         </Aside>
       </div>
     </Card>

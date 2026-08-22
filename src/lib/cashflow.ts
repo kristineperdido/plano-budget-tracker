@@ -20,6 +20,9 @@ export function confidenceOf(m: MoneyIn): Confidence {
 /** One entry in a month's breakdown. */
 export type FlowLine = { id: string; label: string; amount: number };
 
+/** What an earmarked pot paid for in a month. */
+export type EarmarkPayment = { potId: string; potLabel: string; amount: number };
+
 export type MonthFlow = {
   index: number;
   /** Calendar month, YYYY-MM. */
@@ -35,6 +38,12 @@ export type MonthFlow = {
    * rather than take it on trust.
    */
   costLines: FlowLine[];
+  /**
+   * Costs met by a pot that was put aside for them. Not a shortfall: money
+   * doing the job it was saved for.
+   */
+  fromEarmark: EarmarkPayment[];
+  paidFromEarmark: number;
   /** Line items charged this month. */
   bills: number;
   food: number;
@@ -63,6 +72,17 @@ export type Cashflow = {
   firstMonthNeedingUncertain: string | null;
   /** The first month nothing covers, or null. */
   firstMonthShort: string | null;
+  /** Each pot, what it was pointed at, and what is left of it at the end. */
+  pots: {
+    id: string;
+    label: string;
+    confidence: Confidence;
+    amount: number;
+    earmark: string[];
+    spentOnEarmark: number;
+    spentGenerally: number;
+    remaining: number;
+  }[];
   /**
    * How far the money actually goes: the last month that can be paid for in
    * full, and how many months that is. Null when the very first month already
@@ -86,6 +106,12 @@ export type Cashflow = {
   totalGap: number;
   /** What is left over at the end, counting only committed money. */
   endsWith: number;
+  /**
+   * Everything still unspent across every pot. Not reserves minus totalGap —
+   * that stopped being true once earmarked money paid costs directly, since
+   * those payments never appear as a gap.
+   */
+  reservesLeft: number;
 };
 
 /** `n` months after `month`, as YYYY-MM. */
@@ -135,18 +161,36 @@ export function computeCashflow(
 ): Cashflow {
   const months = totalMonths(config.phases, config.startMonth);
 
-  // Reserves only count if the plan is allowed to spend them.
+  // Reserves are tracked pot by pot rather than as three totals, because a pot
+  // can be pointed at particular costs and needs its own balance to draw down.
   const reserves = { committed: 0, uncertain: 0, backup: 0 };
-  for (const m of config.moneyIn) {
-    const kind = confidenceOf(m);
-    if (kind === 'uncertain' && !options.includeUncertain) continue;
-    if (kind === 'backup' && !options.useBackup) continue;
-    reserves[kind] += m.amount;
-  }
+  const pots = config.moneyIn
+    .filter((m) => {
+      const kind = confidenceOf(m);
+      if (kind === 'uncertain' && !options.includeUncertain) return false;
+      if (kind === 'backup' && !options.useBackup) return false;
+      return true;
+    })
+    .map((m) => {
+      const confidence = confidenceOf(m);
+      reserves[confidence] += m.amount;
+      return {
+        id: m.id,
+        label: m.label,
+        confidence,
+        amount: m.amount,
+        earmark: m.earmark ?? [],
+        spentOnEarmark: 0,
+        spentGenerally: 0,
+        remaining: m.amount,
+      };
+    });
 
-  let committed = reserves.committed;
-  let uncertain = reserves.uncertain;
-  let backup = reserves.backup;
+  /** Money left over from a good month, spendable before any reserve. */
+  let carried = 0;
+
+  const left = (k: Confidence) =>
+    pots.filter((p) => p.confidence === k).reduce((s, p) => s + p.remaining, 0);
 
   const out: MonthFlow[] = [];
   let firstMonthNeedingUncertain: string | null = null;
@@ -192,29 +236,58 @@ export function computeCashflow(
       costLines.push({ id: 'food', label: `Food (${days} days)`, amount: food });
     }
     const spend = bills + food;
-    const gap = income - spend;
+
+    // A cost someone put money aside for is paid from that money first. It is
+    // not a shortfall — it is the pot doing the job it was saved for — so it
+    // comes out before the month's gap is worked out at all.
+    const fromEarmark: EarmarkPayment[] = [];
+    let paidFromEarmark = 0;
+    for (const line of costLines) {
+      let owing = line.amount;
+      for (const pot of pots) {
+        if (owing <= 0) break;
+        if (!pot.earmark.includes(line.id) || pot.remaining <= 0) continue;
+        const take = Math.min(pot.remaining, owing);
+        pot.remaining -= take;
+        pot.spentOnEarmark += take;
+        owing -= take;
+        paidFromEarmark += take;
+        const seen = fromEarmark.find((e) => e.potId === pot.id);
+        if (seen) seen.amount += take;
+        else fromEarmark.push({ potId: pot.id, potLabel: pot.label, amount: take });
+      }
+    }
+
+    // What the month still has to find, after earmarked money has done its job.
+    const gap = income - (spend - paidFromEarmark);
     if (gap < 0) totalGap += -gap;
 
-    // Draw down in confidence order, so the month that forces you onto money
-    // you cannot count on is visible.
     let need = Math.max(0, -gap);
-    const fromCommitted = Math.min(committed, need);
-    committed -= fromCommitted;
-    need -= fromCommitted;
 
-    const fromUncertain = Math.min(uncertain, need);
-    uncertain -= fromUncertain;
-    need -= fromUncertain;
+    // Last month's leftover is spent before any reserve is touched.
+    const fromCarried = Math.min(carried, need);
+    carried -= fromCarried;
+    need -= fromCarried;
 
-    const fromBackup = Math.min(backup, need);
-    backup -= fromBackup;
-    need -= fromBackup;
+    // Then the pots, in order of how much they can be relied on.
+    const drawn = { committed: 0, uncertain: 0, backup: 0 };
+    for (const kind of ['committed', 'uncertain', 'backup'] as const) {
+      for (const pot of pots) {
+        if (need <= 0) break;
+        if (pot.confidence !== kind || pot.remaining <= 0) continue;
+        const take = Math.min(pot.remaining, need);
+        pot.remaining -= take;
+        pot.spentGenerally += take;
+        drawn[kind] += take;
+        need -= take;
+      }
+    }
 
     // Anything left over at the end of a month is money in hand.
-    if (gap > 0) committed += gap;
+    if (gap > 0) carried += gap;
 
-    const needsUncertain = fromUncertain > 0;
-    const needsBackup = fromBackup > 0;
+    const needsUncertain = drawn.uncertain > 0;
+    const needsBackup = drawn.backup > 0;
     const short = need > 0.005;
 
     if (needsUncertain && !firstMonthNeedingUncertain) firstMonthNeedingUncertain = month;
@@ -232,9 +305,11 @@ export function computeCashflow(
       food,
       out: spend,
       gap,
-      committedLeft: committed,
-      uncertainLeft: uncertain,
-      backupLeft: backup,
+      fromEarmark,
+      paidFromEarmark,
+      committedLeft: left('committed') + carried,
+      uncertainLeft: left('uncertain'),
+      backupLeft: left('backup'),
       needsUncertain,
       needsBackup,
       short,
@@ -247,7 +322,7 @@ export function computeCashflow(
 
   // How much further the money would go if nothing changed after the plan ends.
   const last = out[out.length - 1];
-  const leftOver = committed + uncertain + backup;
+  const leftOver = carried + left('committed') + left('uncertain') + left('backup');
   let projectedDry: string | null = null;
   let monthsBeyond = 0;
   if (firstShortIndex === -1 && last && last.gap < 0) {
@@ -260,11 +335,13 @@ export function computeCashflow(
     reserves,
     firstMonthNeedingUncertain,
     firstMonthShort,
+    pots,
     lastsUntil: monthsCovered === 0 ? null : covered[monthsCovered - 1]?.month ?? null,
     monthsCovered,
     projectedDry,
     monthsBeyond,
     totalGap,
-    endsWith: committed,
+    endsWith: carried + left('committed'),
+    reservesLeft: leftOver,
   };
 }

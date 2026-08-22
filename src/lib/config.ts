@@ -107,6 +107,16 @@ export type MoneyIn = {
   uncertain?: boolean;
   /** Held as backup and reported separately rather than inside net. */
   backup?: boolean;
+  /**
+   * Line items this money was put aside for, by id. Those costs are paid from
+   * here before anything else is drawn on — which is what stops a planned
+   * outlay like the deposit reading as a shortfall.
+   *
+   * It says what the money is *for*, not what it is limited to: if the costs
+   * come in above the pot, the rest is covered from the other reserves rather
+   * than the month being reported as uncovered with money sitting right there.
+   */
+  earmark?: string[];
   note?: string;
 };
 
@@ -272,7 +282,14 @@ export const DEFAULT_CONFIG: Config = {
     },
   ],
   moneyIn: [
-    { id: 'her-savings', label: 'Her savings',    amount: 40000, owner: 'her' },
+    {
+      id: 'her-savings',
+      label: 'Her savings',
+      amount: 40000,
+      owner: 'her',
+      // Put aside for getting in the door — ₱40,000 against ₱39,083 of it.
+      earmark: ['deposit', 'advance', 'petfee', 'keycard', 'interviews'],
+    },
     { id: 'brother',     label: "Brother's repayment", amount: 10000, owner: 'her', uncertain: true, note: '₱20,000 owed; ₱10,000 realistic in the window' },
     { id: 'his-savings', label: 'His savings',    amount: 10819, owner: 'him', backup: true, note: 'Aug 25 – Sep 25 cutoff, not earmarked' },
   ],

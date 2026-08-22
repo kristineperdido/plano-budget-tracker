@@ -13,10 +13,13 @@ const round = (x: number) => Math.round(x);
   assert.equal(f.months[0].month, '2026-09');
   assert.equal(f.months[4].month, '2027-01');
 
-  // Every month runs a deficit: one income, two people, and the move-in costs
-  // all land in the first.
-  for (const m of f.months) assert.ok(m.gap < 0, `${m.month} cannot pay for itself`);
+  // September is heaviest because the move-in lands in it — but it is not a
+  // shortfall, because tin's savings were put aside for exactly those costs.
   assert.ok(f.months[0].out > f.months[1].out, 'the move-in month is the heaviest');
+  assert.ok(f.months[0].gap > 0, 'and with the move-in paid for, income covers the rest');
+  for (const m of f.months.slice(1)) {
+    assert.ok(m.gap < 0, `${m.month} cannot pay for itself`);
+  }
 
   // Reserves are separated by how much they can be relied on.
   assert.equal(f.reserves.committed, 40000, 'her savings are the only money in hand');
@@ -47,6 +50,49 @@ const round = (x: number) => Math.round(x);
     `  five months: committed runs out ${f.firstMonthNeedingUncertain}, ` +
       `${Math.round(leftAtEnd)} left at the end`,
   );
+}
+
+// ---- 1b. Money put aside for a cost pays it, and is not a shortfall ----
+{
+  const f = computeCashflow(DEFAULT_CONFIG);
+  const sep = f.months[0];
+
+  assert.equal(round(sep.paidFromEarmark), 39083, 'the whole move-in comes from the pot');
+  assert.equal(sep.fromEarmark[0].potLabel, 'Her savings');
+
+  const hers = f.pots.find((p) => p.id === 'her-savings')!;
+  assert.equal(round(hers.spentOnEarmark), 39083);
+  assert.equal(round(hers.spentGenerally), 917, 'the remainder is spendable like anything else');
+
+  // Nothing is created or destroyed: what every pot holds, less what was spent,
+  // is what is left.
+  const spent = f.pots.reduce((a, p) => a + p.spentOnEarmark + p.spentGenerally, 0);
+  const held = f.pots.reduce((a, p) => a + p.amount, 0);
+  assert.equal(round(held - spent), round(f.reservesLeft));
+
+  // Without the earmark the same month reads as a 25,478 shortfall.
+  const bare = clone(DEFAULT_CONFIG);
+  bare.moneyIn = bare.moneyIn.map((m) => ({ ...m, earmark: undefined }));
+  const g = computeCashflow(bare);
+  assert.equal(round(g.months[0].gap), -25478);
+  assert.equal(round(g.reservesLeft), round(f.reservesLeft), 'and ends in the same place either way');
+}
+
+// ---- 1c. An earmark says what money is for, not what it is limited to ----
+{
+  const c = clone(DEFAULT_CONFIG);
+  // A pot far too small for what it is pointed at.
+  c.moneyIn = [
+    { id: 'small', label: 'A little put by', amount: 5000, owner: 'her', earmark: ['deposit'] },
+    { id: 'rest', label: 'The rest', amount: 60000, owner: 'her' },
+  ];
+  const f = computeCashflow(c);
+  const small = f.pots.find((p) => p.id === 'small')!;
+
+  assert.equal(round(small.spentOnEarmark), 5000, 'it gives what it has');
+  assert.equal(round(small.remaining), 0);
+  assert.equal(f.firstMonthShort, null, 'and the rest is covered from elsewhere');
+  assert.ok(f.pots.find((p) => p.id === 'rest')!.spentGenerally > 0);
 }
 
 // ---- 2a. The plan ending is not the same as the money lasting ----
@@ -94,11 +140,15 @@ const round = (x: number) => Math.round(x);
   assert.equal(without.reserves.uncertain, 0, 'the repayment stops counting');
   assert.notEqual(without.firstMonthShort, withUncertain.firstMonthShort, 'and the runway shortens');
 
-  // Pending costs are charged only when asked for.
+  // Pending costs are charged only when asked for. Measured on outgoings and on
+  // what survives, not on totalGap: the unpriced costs land in September, which
+  // now runs a surplus, so they eat into that before they make any gap wider.
   const withPending = computeCashflow(DEFAULT_CONFIG, { ...all, includePending: true });
+  const outOf = (f: typeof withPending) => f.months.reduce((a, m) => a + m.out, 0);
+  assert.ok(outOf(withPending) > outOf(withUncertain), 'the unpriced costs are charged');
   assert.ok(
-    withPending.totalGap > withUncertain.totalGap,
-    'the unpriced costs make the shortfall bigger',
+    withPending.reservesLeft < withUncertain.reservesLeft,
+    'and less money survives the plan',
   );
 
   // Refusing to touch the reserve is a different question, with a shorter answer.
