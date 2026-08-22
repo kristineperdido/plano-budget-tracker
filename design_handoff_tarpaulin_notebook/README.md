@@ -121,7 +121,7 @@ Shape carries the meaning so it reads before the word does; the name removes all
 Wire the names to `app_members.label` (currently `Her` / `Him` in `PAYER_LABEL` and `personLabel`); the design uses `tin` / `jhay`. `personLabel` currently renders `You` for the signed-in user — keep that behaviour, just restyle it.
 
 ### Pace bar — `.pace`
-13px tall, `--track` fill, 1px `--rule` border. Green fill at 82% opacity = share of month budget spent; switches to `--brick` when `spentMonth > accrued`. A 2px `--ink` vertical rule at `paceProgress`, overhanging 4px top and bottom. Below: day count in 11px sans left, and **a Caveat aside** right (`on pace`, `₱820 over`) — this replaces the mono `Pace → ₱14,229` label, though keep the projected figure available.
+13px tall, `--track` fill, 1px `--rule` border. Green fill at 82% opacity = share of month budget spent; switches to `--brick` when `spentMonth > accrued`. A 2px `--ink` vertical rule at `paceProgress`, overhanging 4px top and bottom. Below: day count in 11px sans left, and **a Caveat aside** right (`on pace`, `₱720 over`) — this replaces the mono `Pace → ₱12,400` label, though keep the projected figure available.
 
 ### Tally marks — `.tally`
 2.5px × 18–20px strokes, 4px gap, each rotated irregularly (±2–7°). Fifth stroke is a 19px × 2px diagonal slash at `-13°`. Coloured by meaning: green under, gold middling, brick over. Used for recent days (Today), days-per-week per day type (Food), and coffee runs.
@@ -151,14 +151,14 @@ Always Caveat, always charcoal, always in character. `wala pang laman` · `readi
 Reference ids below match the anchors in `reference-screens.html`.
 
 ### Today — `3a` → `src/app/page.tsx`
-Tarp header. Then, centred: an Anton 11px/.2em `--teal` label `AVAILABLE TO SPEND`; the buffer at mono 54px in green (brick when negative); and a **hand-drawn circle around it** — an absolutely-positioned `border: 2.5px solid var(--brick)`, `border-radius: 50% 48% 52% 50%`, `rotate(-3.4deg)`, 85% opacity. A Caveat aside sits to its right (`pwede pa ito`, rotated 4°). Below: derivation in 12.5px sans (`₱500 × 20 days = ₱10,000 / spent ₱9,180`).
+Tarp header. Then, centred: an Anton 11px/.2em `--teal` label `AVAILABLE TO SPEND`; the buffer at mono 54px in green (brick when negative); and a **hand-drawn circle around it** — an absolutely-positioned `border: 2.5px solid var(--brick)`, `border-radius: 50% 48% 52% 50%`, `rotate(-3.4deg)`, 85% opacity. A Caveat aside sits to its right (`pwede pa ito`, rotated 4°). Below: derivation in 12.5px sans (`₱500 × 20 days = ₱10,000 / spent ₱9,280`).
 
 Then a taped panel with the month pace bar. Then `TODAY` — entry rows with payer marks, two-decimal amounts, and a dotted total. Then `RECENT DAYS` — date, tally marks, day total. A Caveat closer: `3 tipid days and you're level`.
 
 Keep: realtime subscription, delete affordance on each entry, `php2()` amounts.
 
 ### Plan — `3e` → `src/app/plan/page.tsx`
-Phases as a strip of Anton chips, active one filled `--ink` and rotated `-0.8°`. Score panel (taped): each person's net with their payer mark above it, then `COMBINED` in mono 27px. Two Anton toggle-chips for `UNCERTAIN MONEY ON` / `PENDING ITEMS OFF`. Then `WHERE IT GOES` rows, then `LOGGED VS FORECAST` as two bars with a Caveat verdict (`running ₱1,740/mo under`).
+Phases as a strip of Anton chips, active one filled `--ink` and rotated `-0.8°`. Score panel (taped): each person's net with their payer mark above it, then `COMBINED` in mono 27px. Two Anton toggle-chips for `UNCERTAIN MONEY ON` / `PENDING ITEMS OFF`. Then `WHERE IT GOES` rows, then `LOGGED VS FORECAST` as two bars with a Caveat verdict (`running ₱1,520/mo under`).
 
 **New:** multi-phase support (the spec's open item #4). Phases are a first-class list, not a hardcoded two-stage plan.
 
@@ -166,10 +166,10 @@ Phases as a strip of Anton chips, active one filled `--ink` and rotated `-0.8°`
 Three grouped sections — `MOVE-IN`, `EVERY MONTH`, `MONEY IN` — each with an Anton label, a leader rule, and a mono subtotal on the same line. Rows carry payer mark + editable amount. Cadence/payer/month-offset chips only appear on the row being edited. `Food` is marked `derived` in Caveat gold and is not editable. Keep the inline-save behaviour and the `saving…` indicator (now Caveat in the tarp).
 
 ### Food — `3b` → `src/app/food/page.tsx`
-Big forecast per day in mono 52px, brick when over the ₱500 budget, with a Caveat aside (`₱17 lang sobra`). Taped panel `ONE WEEK — 7 DAYS`: three day types, each with amount and a tally row + Caveat day count. Weighted meals total. Separate `COFFEE — SEPARATE` panel — per-run cost, tally of runs, and a Caveat green payoff line (`Drop one run a week → tipid ₱557`). Coffee is an independent layer, not a day type.
+Big forecast per day in mono 52px, brick when over the ₱500 budget, with a Caveat aside (`₱3 lang sobra`). Taped panel `ONE WEEK — 7 DAYS`: three day types, each with amount and a tally row + Caveat day count. Weighted meals total. Separate `COFFEE — SEPARATE` panel — per-run cost, tally of runs, and a Caveat green payoff line (`Drop one run a week → tipid ₱536`). Coffee is an independent layer, not a day type.
 
 ### Logging — `3g` → new sheet component
-Bottom sheet over a dimmed screen, two tape strips holding it down. Opens **day-type first**: `Anong araw?` with three tappable rows (Tipid ₱160 / Not-so-tipid ₱450 / Not tipid at all ₱780), selected one filled `--ink`. A coffee toggle adds ₱130. Payer picked from three Caveat chips. Live total in mono 29px with a Caveat warning in brick if it breaches the buffer. Primary `LOG THE DAY`, ghost `ITEMISE` drops to a per-item keypad for odd days.
+Bottom sheet over a dimmed screen, two tape strips holding it down. Opens **day-type first**: `Anong araw?` with three tappable rows (Tipid ₱150 / Not-so-tipid ₱445 / Not tipid at all ₱755), selected one filled `--ink`. A coffee toggle adds ₱125. Payer picked from three Caveat chips. Live total in mono 29px with a Caveat warning in brick if it breaches the buffer. Primary `LOG THE DAY`, ghost `ITEMISE` drops to a per-item keypad for odd days.
 
 One tap covers most nights. Keep the existing date-offset control (today / yesterday / 2 days).
 
