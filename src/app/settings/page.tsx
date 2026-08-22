@@ -9,6 +9,7 @@ import { useConfig } from '@/lib/useConfig';
 import { fetchMembers, type Member } from '@/lib/members';
 import { totalMonths } from '@/lib/engine';
 import { monthOfIndex } from '@/lib/date';
+import { phaseSpans } from '@/lib/phase';
 import { php } from '@/lib/model';
 import { supabase } from '@/lib/supabase';
 import { useSession } from '@/components/AuthGate';
@@ -398,6 +399,23 @@ export default function SettingsPage() {
                     ))}
                   </select>
                 </div>
+
+                {/* Caught here too, beside the control that causes it. */}
+                {(() => {
+                  const mine = phaseSpans(config, 0).find((sp) => sp.phase.id === p.id);
+                  if (!mine || mine.shadowedBy.length === 0) return null;
+                  return (
+                    <Aside
+                      tilt={-1.5}
+                      tint={mine.ownedMonths === 0 ? 'brick' : 'gold'}
+                      className="mb-2"
+                    >
+                      {mine.ownedMonths === 0
+                        ? `${mine.shadowedBy.join(' and ')} already covers these months — this phase does nothing until it starts later`
+                        : `${mine.phase.months - mine.ownedMonths} of its months overlap ${mine.shadowedBy.join(' and ')}`}
+                    </Aside>
+                  );
+                })()}
 
                 {/* When it runs. Stated rather than assumed to follow the
                     phase before, so moving one leaves the others where they

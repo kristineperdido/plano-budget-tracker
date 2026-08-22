@@ -256,6 +256,22 @@ export default function PlanPage() {
                   }
                 />
 
+                {/* A phase another one already covers governs no months, so
+                    every figure below it reads as nothing. That is worth saying
+                    outright rather than leaving as a screen of zeroes. */}
+                {active.ownedMonths === 0 ? (
+                  <Aside tilt={-1.5} tint="brick" className="mt-2">
+                    {active.shadowedBy.join(' and ').toLowerCase()} already covers these months,
+                    so nothing below counts — change when this one starts
+                  </Aside>
+                ) : active.ownedMonths < active.phase.months ? (
+                  <Aside tilt={-1.5} tint="gold" className="mt-2">
+                    {active.phase.months - active.ownedMonths} of its{' '}
+                    {active.phase.months} months are taken by{' '}
+                    {active.shadowedBy.join(' and ').toLowerCase()}
+                  </Aside>
+                ) : null}
+
                 {active !== currentSpan && currentSpan && (
                   <Aside tilt={-1.5} className="mt-2">
                     you&rsquo;re actually in {currentSpan.phase.label.toLowerCase()} right now

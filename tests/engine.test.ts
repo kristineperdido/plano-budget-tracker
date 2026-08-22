@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { DEFAULT_CONFIG, migrateFood, type Config, type LegacyFoodConfig } from '@/lib/config';
 import { computePlan, foodForecast, applyPayer, phaseOf, totalMonths } from '@/lib/engine';
+import { phaseSpans } from '@/lib/phase';
 
 const clone = (c: Config): Config => JSON.parse(JSON.stringify(c));
 
@@ -295,4 +296,31 @@ assert.deepEqual(applyPayer(100, 'her'), { her: 100, him: 0 });
   assert.equal(two.phases[0].income.at(-1)?.label, 'Tutoring');
 }
 
-console.log('\nall engine assertions passed');
+
+// ---- 9. A phase shadowed by another owns nothing, and says so ----
+// Two phases claiming the same months is easy to do by hand and silently made
+// every figure for the later one read as zero.
+{
+  const c = clone(DEFAULT_CONFIG);
+  c.phases = [
+    { id: 'a', label: 'First', from: '2026-09', months: 3, income: [], schemeId: 'standard', foodPayer: 'split' },
+    { id: 'b', label: 'Second', from: '2026-09', months: 3, income: [], schemeId: 'standard', foodPayer: 'split' },
+    { id: 'c', label: 'Third', from: '2026-11', months: 2, income: [], schemeId: 'standard', foodPayer: 'split' },
+  ];
+  const spans = phaseSpans(c, 0);
+
+  const first = spans.find((s) => s.phase.id === 'a')!;
+  const second = spans.find((s) => s.phase.id === 'b')!;
+  const third = spans.find((s) => s.phase.id === 'c')!;
+
+  assert.equal(first.ownedMonths, 3, 'the earlier phase keeps all of its months');
+  assert.deepEqual(first.shadowedBy, []);
+
+  assert.equal(second.ownedMonths, 0, 'the one behind it owns nothing at all');
+  assert.deepEqual(second.shadowedBy, ['First']);
+
+  assert.equal(third.ownedMonths, 1, 'and a partial overlap loses only what is taken');
+  assert.deepEqual(third.shadowedBy, ['First']);
+}
+
+console.log('all engine assertions passed');

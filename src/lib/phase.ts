@@ -13,6 +13,14 @@ export type PhaseSpan = {
   lastMonth: string;
   /** Months elapsed within this phase, or null when it hasn't started. */
   elapsed: number | null;
+  /**
+   * Months this phase actually governs. Fewer than its length when an earlier
+   * phase already claims some of them, and zero when it is shadowed entirely —
+   * which makes every figure for it read as nothing rather than as an error.
+   */
+  ownedMonths: number;
+  /** Phases sitting on top of this one, by label. */
+  shadowedBy: string[];
 };
 
 const MONTH_NAMES = [
@@ -36,7 +44,7 @@ export function spanLabel(span: PhaseSpan): string {
 /** Lay the phases out along the calendar, given where the plan starts. */
 export function phaseSpans(config: Config, currentMonth: number): PhaseSpan[] {
   const out: PhaseSpan[] = [];
-  for (const phase of config.phases) {
+  for (const [i, phase] of config.phases.entries()) {
     // Each phase says where it starts, so its position no longer depends on
     // what came before it in the list.
     const { from, to } = phaseRange(config.startMonth, phase);
@@ -48,6 +56,22 @@ export function phaseSpans(config: Config, currentMonth: number): PhaseSpan[] {
       lastMonth: monthOfIndex(config.startMonth, to),
       elapsed:
         currentMonth < from ? null : Math.min(currentMonth - from + 1, phase.months),
+      // Resolution is by list order, so only phases before this one can take
+      // months from it.
+      ...(() => {
+        const shadowedBy: string[] = [];
+        let owned = 0;
+        for (let m = from; m <= to; m++) {
+          const winner = config.phases.find((p, j) => {
+            if (j >= i) return false;
+            const r = phaseRange(config.startMonth, p);
+            return m >= r.from && m <= r.to;
+          });
+          if (!winner) owned += 1;
+          else if (!shadowedBy.includes(winner.label)) shadowedBy.push(winner.label);
+        }
+        return { ownedMonths: owned, shadowedBy };
+      })(),
     });
   }
   // In list order the earlier phase wins an overlap; sorted, the strip reads
