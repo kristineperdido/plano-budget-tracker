@@ -107,11 +107,17 @@ export type Cashflow = {
   /** What is left over at the end, counting only committed money. */
   endsWith: number;
   /**
-   * Everything still unspent across every pot. Not reserves minus totalGap —
-   * that stopped being true once earmarked money paid costs directly, since
-   * those payments never appear as a gap.
+   * What is left of the money you started with. Pots only — not reserves minus
+   * totalGap, which stopped being true once earmarked money paid costs
+   * directly, and not including anything earned along the way.
    */
   reservesLeft: number;
+  /**
+   * Everything you hold at the end: what is left of the reserves, plus surplus
+   * kept from months that paid for themselves. These were one figure, which
+   * made a plan ending on 55,115 of earnings look like 55,115 of savings.
+   */
+  inHandAtEnd: number;
 };
 
 /** `n` months after `month`, as YYYY-MM. */
@@ -322,7 +328,8 @@ export function computeCashflow(
 
   // How much further the money would go if nothing changed after the plan ends.
   const last = out[out.length - 1];
-  const leftOver = carried + left('committed') + left('uncertain') + left('backup');
+  const potsLeft = left('committed') + left('uncertain') + left('backup');
+  const leftOver = carried + potsLeft;
   let projectedDry: string | null = null;
   let monthsBeyond = 0;
   if (firstShortIndex === -1 && last && last.gap < 0) {
@@ -342,6 +349,7 @@ export function computeCashflow(
     monthsBeyond,
     totalGap,
     endsWith: carried + left('committed'),
-    reservesLeft: leftOver,
+    reservesLeft: potsLeft,
+    inHandAtEnd: leftOver,
   };
 }

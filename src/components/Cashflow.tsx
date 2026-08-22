@@ -48,9 +48,11 @@ export function CashflowPanel({
   const totalIn = shown.reduce((s, m) => s + m.income, 0);
   const shownGap = shown.reduce((s, m) => s + Math.max(0, -m.gap), 0);
   const reservesTotal = flow.reserves.committed + flow.reserves.uncertain + flow.reserves.backup;
-  // Read off the pots rather than reserves minus the gap: earmarked money pays
-  // costs directly and never shows up as a gap, so the subtraction overstates.
-  const leftAtEnd = flow.reservesLeft;
+  // Two different figures, and they were one: what survives of the savings, and
+  // what you actually hold once months that paid for themselves are counted.
+  const savingsLeft = flow.reservesLeft;
+  const inHand = flow.inHandAtEnd;
+  const earned = inHand - savingsLeft;
 
   return (
     <Card title="Month by month" amount={label} tape="left">
@@ -198,14 +200,32 @@ export function CashflowPanel({
         )}
 
         <div className="leader mt-2 border-t pt-2.5" style={{ borderColor: 'var(--rule)' }}>
-          <span className="sign-label">Left at the end</span>
+          <span className="sign-label">Savings left</span>
           <span className="leader-fill" aria-hidden />
-          <span className={`num text-[17px] ${leftAtEnd < 0 ? 'tint-brick' : 'tint-green'}`}>
-            {php(leftAtEnd)}
+          <span className={`num text-[15px] ${savingsLeft <= 0 ? 'tint-brick' : 'tint-green'}`}>
+            {php(savingsLeft)}
           </span>
         </div>
 
-        <Aside tilt={-1.5} tint={leftAtEnd < 0 ? 'brick' : 'gold'} className="mt-2">
+        {earned > 0.5 && (
+          <div className="row">
+            <span className="row-label">
+              Kept from good months
+              <span className="row-meta block">earned during the plan, not savings</span>
+            </span>
+            <span className="num tint-green text-[13px]">{php(earned)}</span>
+          </div>
+        )}
+
+        <div className="leader mt-1 border-t pt-2.5" style={{ borderColor: 'var(--rule)' }}>
+          <span className="sign-label">In hand at the end</span>
+          <span className="leader-fill" aria-hidden />
+          <span className={`num text-[17px] ${inHand < 0 ? 'tint-brick' : 'tint-green'}`}>
+            {php(inHand)}
+          </span>
+        </div>
+
+        <Aside tilt={-1.5} tint={savingsLeft <= 0 ? 'brick' : 'gold'} className="mt-2">
           {php(reservesTotal)} of savings against {php(flow.totalGap)} of shortfall
           {flow.pots.some((p) => p.spentOnEarmark > 0) &&
             `, plus ${php(flow.pots.reduce((a, p) => a + p.spentOnEarmark, 0))} it was put aside for`}

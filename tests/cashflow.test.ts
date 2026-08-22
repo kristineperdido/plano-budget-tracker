@@ -70,6 +70,28 @@ const round = (x: number) => Math.round(x);
   const held = f.pots.reduce((a, p) => a + p.amount, 0);
   assert.equal(round(held - spent), round(f.reservesLeft));
 
+  // The same identity has to hold on a plan that earns a surplus, which is
+  // where it previously broke: money kept from a good month was being counted
+  // as though it were savings that had never been spent.
+  const earning = clone(DEFAULT_CONFIG);
+  earning.phases.push({
+    id: 'rich', label: 'Both earning', from: '2027-02', months: 3,
+    schemeId: 'standard', foodPayer: 'split',
+    income: [
+      { id: 'him', label: "Jhay's pay", owner: 'him', amount: 27000 },
+      { id: 'her', label: "Tin's pay", owner: 'her', amount: 27000 },
+    ],
+  });
+  const e = computeCashflow(earning);
+  const eSpent = e.pots.reduce((a, p) => a + p.spentOnEarmark + p.spentGenerally, 0);
+  const eHeld = e.pots.reduce((a, p) => a + p.amount, 0);
+  assert.equal(round(eHeld - eSpent), round(e.reservesLeft), 'savings left is savings only');
+  assert.ok(e.inHandAtEnd > e.reservesLeft, 'and what you hold includes what you earned');
+  assert.ok(
+    e.reservesLeft <= eHeld,
+    'you cannot end with more savings than you ever had',
+  );
+
   // Without the earmark the same month reads as a 25,478 shortfall.
   const bare = clone(DEFAULT_CONFIG);
   bare.moneyIn = bare.moneyIn.map((m) => ({ ...m, earmark: undefined }));
