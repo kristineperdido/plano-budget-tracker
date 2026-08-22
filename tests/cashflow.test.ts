@@ -396,4 +396,49 @@ const round = (x: number) => Math.round(x);
   assert.equal(round(total({ includeUncertain: true, useBackup: true, includePending: false })), 59819);
 }
 
+
+// ---- 12. The ending is signed, and never floored at zero ----
+// A plan that overruns its savings and one that never touches them are
+// different outcomes; both used to print "0". savingsEnd separates them.
+{
+  const c = clone(DEFAULT_CONFIG);
+  c.moneyIn = [{ id: 'a', label: 'Savings', amount: 40000, owner: 'her' }];
+  const o = { includeUncertain: false, includePending: false, useBackup: true };
+
+  // Overrun: savings gone AND months left uncovered.
+  const lean = computeCashflow(c, o);
+  if (lean.totalShort > 0) {
+    assert.equal(round(lean.reservesLeft), 0, 'pots are emptied before a month is short');
+    assert.ok(lean.savingsEnd < 0, 'and the ending goes negative rather than to zero');
+    assert.equal(round(lean.savingsEnd), -round(lean.totalShort));
+  }
+
+  // Surplus: savings survive, nothing uncovered.
+  const rich = clone(c);
+  rich.phases.forEach((p) => p.income.forEach((s) => (s.amount = 90000)));
+  const g = computeCashflow(rich, o);
+  assert.equal(round(g.totalShort), 0, 'nothing is short when income covers it');
+  assert.ok(g.savingsEnd > 0, 'and the ending is the untouched savings');
+  assert.equal(round(g.savingsEnd), round(g.reservesLeft));
+
+  // The two can never both be non-zero: reserves are spent before short is called.
+  for (const inc of [0, 15000, 27900, 45000, 60000, 90000]) {
+    const t = clone(c);
+    t.phases.forEach((p) => p.income.forEach((s) => (s.amount = inc)));
+    const f = computeCashflow(t, o);
+    assert.ok(
+      f.reservesLeft <= 0.005 || f.totalShort <= 0.005,
+      `income ${inc}: cannot have savings left and be short at once`,
+    );
+    assert.equal(round(f.savingsEnd), round(f.reservesLeft - f.totalShort));
+  }
+
+  // Per-month amounts add up to the total.
+  const sum = lean.months.reduce((s, m) => s + m.shortBy, 0);
+  assert.equal(round(sum), round(lean.totalShort), 'months account for the whole shortfall');
+  lean.months.forEach((m) => {
+    assert.equal(m.short, m.shortBy > 0.005, 'the flag and the amount agree');
+  });
+}
+
 console.log('all cashflow assertions passed');

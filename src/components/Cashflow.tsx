@@ -55,6 +55,11 @@ export function CashflowPanel({
   // Two different figures, and they were one: what survives of the savings, and
   // what you actually hold once months that paid for themselves are counted.
   const savingsLeft = flow.reservesLeft;
+  // Signed: what the savings actually came to. Positive is money never needed,
+  // negative is the plan wanting more than the savings ever held. Flooring this
+  // at zero made those two outcomes print identically.
+  const ending = flow.savingsEnd;
+  const over = ending < -0.005;
 
   return (
     <Card title="Month by month" amount={label} tape="left">
@@ -214,18 +219,36 @@ export function CashflowPanel({
           <span className="num tint-brick text-[13px]">−{php(reservesTotal - savingsLeft)}</span>
         </div>
 
-        <div className="leader mt-1 border-t pt-2.5" style={{ borderColor: 'var(--rule)' }}>
-          <span className="sign-label">Savings left</span>
+        {/* Only when the plan wants more than the savings ever held. */}
+        {over && (
+          <div className="row">
+            <span className="row-label">
+              Not covered by anything
+              <span className="row-meta block">no money left to draw on</span>
+            </span>
+            <span className="num tint-brick text-[13px]">−{php(flow.totalShort)}</span>
+          </div>
+        )}
+
+        <div
+          className="leader mt-1 border-t-2 pt-2.5"
+          style={{ borderColor: over ? 'var(--brick)' : 'var(--rule)' }}
+        >
+          <span className={`sign-label ${over ? 'tint-brick' : ''}`}>
+            {over ? 'Short beyond savings' : ending > 0.005 ? 'Savings left over' : 'Savings left'}
+          </span>
           <span className="leader-fill" aria-hidden />
-          <span className={`num text-[17px] ${savingsLeft <= 0 ? 'tint-brick' : 'tint-green'}`}>
-            {php(savingsLeft)}
+          <span className={`num text-[17px] ${over ? 'tint-brick' : ending > 0.005 ? 'tint-green' : ''}`}>
+            {over ? '−' : ending > 0.005 ? '+' : ''}
+            {php(Math.abs(ending))}
           </span>
         </div>
 
         {/* Every figure named here is a row directly above it. */}
-        {flow.firstMonthShort ? (
+        {over ? (
           <Aside tilt={-1.5} tint="brick" className="mt-2">
-            the savings run out, and {short(flow.firstMonthShort)} cannot be covered at all
+            the plan wants {php(flow.totalShort)} more than the savings hold
+            {flow.firstMonthShort ? ` — first felt in ${short(flow.firstMonthShort)}` : ''}
           </Aside>
         ) : savingsLeft <= 0.5 ? (
           <Aside tilt={-1.5} tint="gold" className="mt-2">
@@ -234,11 +257,11 @@ export function CashflowPanel({
           </Aside>
         ) : savingsLeft < reservesTotal * 0.25 ? (
           <Aside tilt={-1.5} tint="gold" className="mt-2">
-            most of the savings go — {php(savingsLeft)} of {php(reservesTotal)} survives
+            most of the savings go — {php(ending)} of {php(reservesTotal)} survives
           </Aside>
         ) : (
           <Aside tilt={-1.5} tint="green" className="mt-2">
-            {php(savingsLeft)} of savings never has to be touched
+            {php(ending)} of savings never has to be touched
           </Aside>
         )}
       </div>

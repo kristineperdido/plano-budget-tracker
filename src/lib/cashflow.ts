@@ -72,6 +72,11 @@ export type MonthFlow = {
   needsBackup: boolean;
   /** True if nothing is left to cover this month at all. */
   short: boolean;
+  /**
+   * How much of this month nothing covers: what is left of the bill after
+   * carried surplus and every pot has been drawn on. Zero unless short.
+   */
+  shortBy: number;
 };
 
 export type Cashflow = {
@@ -127,6 +132,14 @@ export type Cashflow = {
    * directly, and not including anything earned along the way.
    */
   reservesLeft: number;
+  /** Every peso the plan could not cover, across all months. */
+  totalShort: number;
+  /**
+   * Where the savings land, signed. Positive is savings never touched;
+   * negative is the plan needing more than the savings ever held. Never both:
+   * pots are drained before a month is called short.
+   */
+  savingsEnd: number;
   /**
    * Everything you hold at the end: what is left of the reserves, plus surplus
    * kept from months that paid for themselves. These were one figure, which
@@ -217,6 +230,7 @@ export function computeCashflow(
   let firstMonthNeedingUncertain: string | null = null;
   let firstMonthShort: string | null = null;
   let totalGap = 0;
+  let totalShort = 0;
 
   for (let i = 0; i < months; i++) {
     const phase = phaseOf(config.phases, i, config.startMonth);
@@ -310,6 +324,8 @@ export function computeCashflow(
     const needsUncertain = drawn.uncertain > 0;
     const needsBackup = drawn.backup > 0;
     const short = need > 0.005;
+    const shortBy = short ? need : 0;
+    totalShort += shortBy;
 
     if (needsUncertain && !firstMonthNeedingUncertain) firstMonthNeedingUncertain = month;
     if (short && !firstMonthShort) firstMonthShort = month;
@@ -337,6 +353,7 @@ export function computeCashflow(
       needsUncertain,
       needsBackup,
       short,
+      shortBy,
     });
   }
 
@@ -370,6 +387,8 @@ export function computeCashflow(
     endsWith: carried + left('committed'),
     savingsGoneIn: potsLeft <= 0.005 ? (gone?.month ?? null) : null,
     reservesLeft: potsLeft,
+    totalShort,
+    savingsEnd: potsLeft - totalShort,
     inHandAtEnd: leftOver,
   };
 }
