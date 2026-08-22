@@ -15,6 +15,9 @@ import {
 } from '@/lib/config';
 import { logChange } from '@/lib/configStore';
 import { schemesWith, type Scheme } from '@/lib/config';
+import { phasesUsing, readViewedPhase, schemeForViewed } from '@/lib/viewing';
+import { phaseSpans, spanLabel } from '@/lib/phase';
+import { monthIndexOf } from '@/lib/date';
 import { useConfig } from '@/lib/useConfig';
 import { foodForecast, householdCost } from '@/lib/engine';
 import { fetchBills, recordBill, type BillPayment } from '@/lib/bills';
@@ -98,8 +101,18 @@ export default function LedgerPage() {
   const [savingBill, setSavingBill] = useState(false);
   /** Which row has been opened to type a figure it does not have yet. */
   const [recording, setRecording] = useState<string | null>(null);
-  /** Which scheme the Ledger is editing. Defaults to the first. */
+  /**
+   * Which scheme the Ledger is editing. Seeded from the phase selected on Plan
+   * so the two screens agree, then overridable here — a scheme cannot say which
+   * of its phases you came from, so the link only runs phase → scheme.
+   */
   const [schemeId, setSchemeId] = useState<string | null>(null);
+  /**
+   * Read once, on mount. Safe to read storage in an initialiser here because
+   * config is still loading on the first render, so both the server and the
+   * client render the same placeholder regardless of what this returns.
+   */
+  const [viewedPhase] = useState(readViewedPhase);
   /** A change just saved that could also be applied to the other schemes. */
   const [spread, setSpread] = useState<{ itemId: string; label: string; patch: Partial<LineItem> } | null>(null);
   const saveActual = useCallback(
@@ -123,9 +136,31 @@ export default function LedgerPage() {
     [billMonth, setError],
   );
 
+  // An explicit pick here wins; otherwise follow the phase selected on Plan.
   const scheme: Scheme | null = config
-    ? (config.schemes.find((s) => s.id === schemeId) ?? config.schemes[0])
+    ? (config.schemes.find((s) => s.id === (schemeId ?? schemeForViewed(config, viewedPhase))) ??
+      config.schemes[0])
     : null;
+
+  /**
+   * Which phases the open scheme governs, and the stretch they cover between
+   * them. Shown because editing a line here moves every one of them, and the
+   * scheme's own name gives no hint of how many that is.
+   */
+  const governs = useMemo(() => {
+    if (!config || !scheme) return null;
+    const spans = phaseSpans(config, monthIndexOf(config.startMonth, todayISO()));
+    const used = phasesUsing(config, scheme.id);
+    const mine = spans.filter((sp) => used.some((p) => p.id === sp.phase.id));
+    if (mine.length === 0) return { phases: [], label: null, months: 0 };
+    const first = mine.reduce((a, b) => (a.from <= b.from ? a : b));
+    const last = mine.reduce((a, b) => (a.to >= b.to ? a : b));
+    return {
+      phases: mine.map((sp) => sp.phase.label),
+      label: spanLabel({ ...first, lastMonth: last.lastMonth }),
+      months: mine.reduce((n, sp) => n + sp.ownedMonths, 0),
+    };
+  }, [config, scheme]);
 
   /** Replace the active scheme's lines. */
   const writeScheme = useCallback(
@@ -259,6 +294,33 @@ export default function LedgerPage() {
                   );
                 })}
               </div>
+
+              {/* Who this scheme actually governs. A phase points at a scheme,
+                  and several can point at the same one, so the honest subject of
+                  this screen is the scheme — named here with its reach. */}
+              {governs && governs.phases.length > 0 && (
+                <div className="mt-2.5 border-t pt-2" style={{ borderColor: 'var(--rule)' }}>
+                  {/* A grid, not a leader: two long strings on one line
+                      collapsed the phase names into a vertical stack. */}
+                  <div
+                    className="grid items-baseline gap-x-2 gap-y-0.5"
+                    style={{ gridTemplateColumns: 'auto 1fr' }}
+                  >
+                    <span className="sign-label tint-muted">used by</span>
+                    <span className="row-label">{governs.phases.join(' · ')}</span>
+                    <span aria-hidden />
+                    <span className="row-meta">
+                      {governs.label} · {governs.months} {governs.months === 1 ? 'month' : 'months'}
+                    </span>
+                  </div>
+                  {governs.phases.length > 1 && (
+                    <p className="row-status tint-brick mt-1.5">
+                      edits here move{' '}
+                      {governs.phases.length === 2 ? 'both' : `all ${governs.phases.length}`} phases
+                    </p>
+                  )}
+                </div>
+              )}
 
               <div className="mt-2 flex items-center gap-2">
                 <input

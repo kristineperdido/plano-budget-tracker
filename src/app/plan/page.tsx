@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useViewedPhase } from '@/lib/viewing';
 import { Row, Signed } from '@/components/Money';
 import { Screen, Card, Aside } from '@/components/Screen';
 import { PayerMark, PayerTag } from '@/components/Payer';
@@ -23,7 +24,9 @@ export default function PlanPage() {
   // made the headline read +8,998 while the committed position was short.
   const [includeUncertain, setIncludeUncertain] = useState(false);
   const [includePending, setIncludePending] = useState(false);
-  const [viewPhase, setViewPhase] = useState<string | null>(null);
+  // Shared with the Ledger: picking a phase here decides which scheme the
+  // Ledger opens on, so the two screens are never describing different stretches.
+  const [viewPhase, setViewPhase] = useViewedPhase();
   /** Read every figure per month, or across the whole stretch. */
   const [per, setPer] = useState<'month' | 'phase'>('month');
   /** Whether the plan is allowed to spend the reserve that is meant to stay put. */

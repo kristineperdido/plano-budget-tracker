@@ -441,4 +441,44 @@ const round = (x: number) => Math.round(x);
   });
 }
 
+
+// ---- 13. Pots carry enough to be shown as things, not categories ----
+{
+  const c = clone(DEFAULT_CONFIG);
+  const f = computeCashflow(c, { includeUncertain: true, includePending: false, useBackup: true });
+
+  // Every pot resolves its earmark ids to names; an unresolved id would render
+  // as a raw slug in the drilldown.
+  for (const pot of f.pots) {
+    assert.equal(pot.earmarkLabels.length, pot.earmark.length, `${pot.label}: one name per earmark`);
+    pot.earmarkLabels.forEach((l, i) => {
+      assert.notEqual(l, pot.earmark[i], `${pot.label}: "${l}" did not resolve to a name`);
+      assert.ok(l.length > 0);
+    });
+    assert.ok(pot.owner === 'her' || pot.owner === 'him', `${pot.label}: has an owner`);
+  }
+
+  // Each pot accounts for itself, and the pots account for the buckets.
+  for (const pot of f.pots) {
+    assert.equal(
+      round(pot.spentOnEarmark + pot.spentGenerally + pot.remaining),
+      round(pot.amount),
+      `${pot.label}: what went out plus what is left is what it held`,
+    );
+  }
+  const byKind = (k: string) =>
+    f.pots.filter((p) => p.confidence === k).reduce((s, p) => s + p.amount, 0);
+  assert.equal(round(byKind('committed')), round(f.reserves.committed));
+  assert.equal(round(byKind('uncertain')), round(f.reserves.uncertain));
+  assert.equal(round(byKind('backup')), round(f.reserves.backup));
+
+  // And the drilldown's own total is the row it hangs under.
+  const shown = f.pots.reduce((s, p) => s + p.amount, 0);
+  assert.equal(
+    round(shown),
+    round(f.reserves.committed + f.reserves.uncertain + f.reserves.backup),
+    'the pots listed add up to "Savings in play"',
+  );
+}
+
 console.log('all cashflow assertions passed');

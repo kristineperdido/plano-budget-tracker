@@ -1,6 +1,6 @@
 import { daysCoveredInMonth, monthOfIndex } from './date';
 import { applyPayer, phaseOf, totalMonths } from './engine';
-import { schemeFor, type Config, type LineItem, type MoneyIn } from './config';
+import { schemeFor, type Config, type LineItem, type MoneyIn, type Payer } from './config';
 
 /**
  * Whether a pot of money is money you can count on.
@@ -98,7 +98,14 @@ export type Cashflow = {
     label: string;
     confidence: Confidence;
     amount: number;
+    /** Whose money it is, so the drilldown can say more than a category. */
+    owner: Payer;
     earmark: string[];
+    /**
+     * The earmarked costs by name. Resolved here rather than in the component,
+     * which has the flow but not the config the ids point into.
+     */
+    earmarkLabels: string[];
     spentOnEarmark: number;
     spentGenerally: number;
     remaining: number;
@@ -197,6 +204,15 @@ export function computeCashflow(
 
   // Reserves are tracked pot by pot rather than as three totals, because a pot
   // can be pointed at particular costs and needs its own balance to draw down.
+  /** An earmark can name a line in any scheme, or one still only pending. */
+  const labelOf = (id: string): string => {
+    for (const sc of config.schemes) {
+      const hit = sc.items.find((i) => i.id === id);
+      if (hit) return hit.label;
+    }
+    return config.pending.find((i) => i.id === id)?.label ?? id;
+  };
+
   const reserves = { committed: 0, uncertain: 0, backup: 0 };
   const pots = config.moneyIn
     .filter((m) => {
@@ -213,7 +229,9 @@ export function computeCashflow(
         label: m.label,
         confidence,
         amount: m.amount,
+        owner: m.owner,
         earmark: m.earmark ?? [],
+        earmarkLabels: (m.earmark ?? []).map((id) => labelOf(id)),
         spentOnEarmark: 0,
         spentGenerally: 0,
         remaining: m.amount,

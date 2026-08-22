@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { php } from '@/lib/model';
+import { PAYER_LABEL } from '@/lib/config';
 import { Card, Aside } from '@/components/Screen';
 import type { Cashflow, MonthFlow } from '@/lib/cashflow';
 
@@ -45,6 +46,8 @@ export function CashflowPanel({
 }) {
   /** Which month is opened out. One at a time keeps the table readable. */
   const [expanded, setExpanded] = useState<string | null>(null);
+  /** Whether the pots behind "Savings in play" are opened out. */
+  const [showPots, setShowPots] = useState(false);
   const shown = only
     ? flow.months.filter((m) => m.index >= only.from && m.index <= only.to)
     : flow.months;
@@ -208,11 +211,80 @@ export function CashflowPanel({
 
         {/* The arithmetic, shown rather than asserted: what was in play, what
             the plan took, what is left. */}
-        <div className="leader mt-2 border-t pt-2.5" style={{ borderColor: 'var(--rule)' }}>
-          <span className="sign-label">Savings in play</span>
+        {/* The three rows above are confidence buckets; the money itself is a
+            list of named pots with owners and earmarks. Opening this shows the
+            things rather than the categories. */}
+        <button
+          type="button"
+          className="leader mt-2 w-full border-t pt-2.5 text-left"
+          style={{ borderColor: 'var(--rule)', background: 'transparent' }}
+          aria-expanded={showPots}
+          onClick={() => setShowPots((v) => !v)}
+        >
+          <span className="sign-label flex items-baseline gap-1">
+            <span
+              aria-hidden
+              style={{
+                fontSize: 8,
+                transform: showPots ? 'rotate(90deg)' : 'none',
+                display: 'inline-block',
+              }}
+            >
+              ▶
+            </span>
+            Savings in play
+          </span>
           <span className="leader-fill" aria-hidden />
           <span className="num text-[13px]">{php(reservesTotal)}</span>
-        </div>
+        </button>
+
+        {showPots && (
+          <div className="mb-1 ml-[10px] pl-3" style={{ borderLeft: '1px solid var(--rule)' }}>
+            {flow.pots.map((pot) => (
+              <div key={pot.id} className="mt-2">
+                <div className="leader">
+                  <span className="row-label">{pot.label}</span>
+                  <span className="leader-fill" aria-hidden />
+                  <span className="num text-[12.5px]">{php(pot.amount)}</span>
+                </div>
+                <p className="row-note">
+                  {PAYER_LABEL[pot.owner]} ·{' '}
+                  {pot.confidence === 'committed'
+                    ? 'counted on'
+                    : pot.confidence === 'uncertain'
+                      ? 'might not arrive'
+                      : 'the reserve'}
+                </p>
+                {pot.earmarkLabels.length > 0 && (
+                  <p className="row-note">set against {pot.earmarkLabels.join(', ')}</p>
+                )}
+                {pot.spentOnEarmark > 0.005 && (
+                  <div className="leader">
+                    <span className="row-note">→ to those costs</span>
+                    <span className="leader-fill" aria-hidden />
+                    <span className="num tint-muted text-[12px]">{php(pot.spentOnEarmark)}</span>
+                  </div>
+                )}
+                {pot.spentGenerally > 0.005 && (
+                  <div className="leader">
+                    <span className="row-note">→ to other months</span>
+                    <span className="leader-fill" aria-hidden />
+                    <span className="num tint-muted text-[12px]">{php(pot.spentGenerally)}</span>
+                  </div>
+                )}
+                <div className="leader">
+                  <span className="row-note">left</span>
+                  <span className="leader-fill" aria-hidden />
+                  <span
+                    className={`num text-[12px] ${pot.remaining > 0.005 ? 'tint-green' : 'tint-muted'}`}
+                  >
+                    {php(pot.remaining)}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
 
         <div className="row">
           <span className="row-label">Spent covering the plan</span>
