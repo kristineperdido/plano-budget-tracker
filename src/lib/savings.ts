@@ -69,16 +69,3 @@ export async function deleteSavings(id: string): Promise<void> {
   const { error } = await supabase.from('savings_entries').delete().eq('id', id);
   if (error) throw new Error(error.message);
 }
-
-export function balanceOf(entries: SavingsEntry[]): number {
-  return entries.reduce((s, e) => s + e.amount, 0);
-}
-
-/** Months already accounted for, so the same month cannot be recorded twice. */
-export function settledMonths(entries: SavingsEntry[]): Set<string> {
-  return new Set(
-    entries
-      .filter((e) => (e.kind === 'sweep' || e.kind === 'drawdown') && e.for_month)
-      .map((e) => e.for_month as string),
-  );
-}

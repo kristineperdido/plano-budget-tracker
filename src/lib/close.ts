@@ -2,6 +2,7 @@ import { daysCoveredInMonth, monthIndexOf } from './date';
 import { phaseOf } from './engine';
 import { schemeFor, type Config, type LineItem } from './config';
 import type { BillPayment } from './bills';
+import type { SavingsEntry } from './savings';
 import { owedOn, type FoodEntry } from './types';
 
 /** YYYY-MM for a Manila calendar day. */
@@ -156,4 +157,19 @@ export function settle(entries: FoodEntry[]): Settlement {
   const net = owedTo[a] - owedTo[b];
   if (Math.abs(net) < 0.005) return { creditor: null, amount: 0, owedTo };
   return { creditor: a, amount: net, owedTo };
+}
+
+// ---- savings arithmetic -------------------------------------------------
+
+export function balanceOf(entries: SavingsEntry[]): number {
+  return entries.reduce((s, e) => s + e.amount, 0);
+}
+
+/** Months already accounted for, so the same month cannot be recorded twice. */
+export function settledMonths(entries: SavingsEntry[]): Set<string> {
+  return new Set(
+    entries
+      .filter((e) => (e.kind === 'sweep' || e.kind === 'drawdown') && e.for_month)
+      .map((e) => e.for_month as string),
+  );
 }

@@ -102,3 +102,15 @@ export function daysCoveredInMonth(startDate: string, month: string): number {
   if (month > startMonth) return dim;
   return dim - parseISO(startDate).d + 1;
 }
+
+/**
+ * Whole days from `from` to `to`, both Manila calendar days. Counted on the
+ * calendar rather than by subtracting timestamps, so a daylight-saving shift
+ * elsewhere in the world cannot make it 23 hours and round down.
+ */
+export function daysBetween(from: string, to: string): number {
+  const a = parseISO(from);
+  const b = parseISO(to);
+  const ms = Date.UTC(b.y, b.m - 1, b.d) - Date.UTC(a.y, a.m - 1, a.d);
+  return Math.round(ms / 86_400_000);
+}

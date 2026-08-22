@@ -23,7 +23,8 @@ import { DEFAULT_CONFIG } from '@/lib/config';
 import { useSession } from '@/components/AuthGate';
 import type { FoodEntry } from '@/lib/types';
 import { settle } from '@/lib/close';
-import { balanceOf, fetchSavings, type SavingsEntry } from '@/lib/savings';
+import { fetchSavings, type SavingsEntry } from '@/lib/savings';
+import { balanceOf } from '@/lib/close';
 
 /** Days of history shown under the fold. */
 const RECENT_DAYS = 14;
