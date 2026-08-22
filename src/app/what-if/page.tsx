@@ -7,6 +7,7 @@ import { PayerMark } from '@/components/Payer';
 import type { Config } from '@/lib/config';
 import { useConfig } from '@/lib/useConfig';
 import { computePlan, foodForecast } from '@/lib/engine';
+import { computeCashflow } from '@/lib/cashflow';
 import { php } from '@/lib/model';
 
 /**
@@ -25,6 +26,9 @@ type Knobs = {
   foodPerDay: number;
   uncertainMoney: number;
 };
+
+/** The runway is read with everything available, so dragging shows the ceiling. */
+const FLOW_OPTS = { includeUncertain: true, includePending: false, useBackup: true } as const;
 
 /** Read the knob positions the stored config currently implies, for one phase. */
 function knobsFrom(config: Config, phaseId?: string): Knobs {
@@ -95,6 +99,39 @@ export default function WhatIfPage() {
   );
   const previewFood = useMemo(() => (draft ? foodForecast(draft.food) : null), [draft]);
 
+  /** Where the selected phase sits in the timeline being previewed. */
+  const windowFor = (cfg: Config, phaseId: string) => {
+    let offset = 0;
+    for (const p of cfg.phases) {
+      if (p.id === phaseId) return { from: offset, to: offset + p.months - 1 };
+      offset += p.months;
+    }
+    return null;
+  };
+
+  // The sliders act on one phase, so the result has to as well. It used to show
+  // the whole plan while the controls above it changed a single stretch.
+  const scoped = useMemo(() => {
+    if (!draft || !knobs) return null;
+    const w = windowFor(draft, knobs.phaseId);
+    return w
+      ? computePlan(draft, { includeUncertain: true, includePending: false, window: w })
+      : null;
+  }, [draft, knobs]);
+
+  const scopedBefore = useMemo(() => {
+    if (!config || !knobs) return null;
+    const w = windowFor(config, knobs.phaseId);
+    return w
+      ? computePlan(config, { includeUncertain: true, includePending: false, window: w })
+      : null;
+  }, [config, knobs]);
+
+  // "Can we?" is a runway question, and the runway is whole-plan by nature —
+  // shifting one phase's length moves every month after it.
+  const previewFlow = useMemo(() => (draft ? computeCashflow(draft, FLOW_OPTS) : null), [draft]);
+  const baseFlow = useMemo(() => (config ? computeCashflow(config, FLOW_OPTS) : null), [config]);
+
   const baseline = useMemo(
     () => (config ? computePlan(config, { includeUncertain: true, includePending: false }) : null),
     [config],
@@ -130,7 +167,7 @@ export default function WhatIfPage() {
         </p>
       )}
 
-      {!config || !knobs || !preview || !baseline || !previewFood ? (
+      {!config || !knobs || !preview || !baseline || !previewFood || !scoped || !scopedBefore || !previewFlow || !baseFlow ? (
         <p className="empty py-16 text-center">working the numbers…</p>
       ) : (
         <>
@@ -165,6 +202,7 @@ export default function WhatIfPage() {
 
           <Slider
             label="How long it lasts"
+            note="months in this phase — the ones after it shift along, so the plan gets longer or shorter"
             value={knobs.months}
             min={1}
             max={24}
@@ -174,6 +212,7 @@ export default function WhatIfPage() {
           />
           <Slider
             label="Tin earns"
+            note="her take-home each month of this phase only"
             value={knobs.herIncome}
             min={0}
             max={80000}
@@ -183,6 +222,7 @@ export default function WhatIfPage() {
           />
           <Slider
             label="Jhay earns"
+            note="his take-home each month of this phase only"
             value={knobs.himIncome}
             min={0}
             max={80000}
@@ -192,6 +232,7 @@ export default function WhatIfPage() {
           />
           <Slider
             label="Side hustle"
+            note="added to tin's income, on top of what she earns above"
             value={knobs.sideHustle}
             min={0}
             max={20000}
@@ -207,6 +248,7 @@ export default function WhatIfPage() {
 
           <Slider
             label="Food per day"
+            note="scales all three kinds of day together, keeping their shape — it does not change the ₱500 allowance"
             value={knobs.foodPerDay}
             min={150}
             max={900}
@@ -216,6 +258,7 @@ export default function WhatIfPage() {
           />
           <Slider
             label="Uncertain money"
+            note="what the brother's repayment is worth if it arrives — Plan leaves it out by default"
             value={knobs.uncertainMoney}
             min={0}
             max={30000}
@@ -227,16 +270,62 @@ export default function WhatIfPage() {
 
           <div className="panel mt-4">
             <span className="tape tape-r" style={{ right: 24 }} aria-hidden />
+
+            <div className="leader mb-2">
+              <span className="sign-label tint-teal">
+                {config.phases.find((p) => p.id === knobs.phaseId)?.label ?? 'This phase'}
+              </span>
+              <span className="leader-fill" aria-hidden />
+              <span className="row-meta">across the phase</span>
+            </div>
+
             <div className="flex gap-3">
-              <Net label="tin" shape="solid" value={preview.net.her} was={baseline.net.her} />
-              <Net label="jhay" shape="hollow" value={preview.net.him} was={baseline.net.him} />
-              <Net label="both" shape="both" value={preview.combined} was={baseline.combined} />
+              <Net label="tin" shape="solid" value={scoped.net.her} was={scopedBefore.net.her} />
+              <Net label="jhay" shape="hollow" value={scoped.net.him} was={scopedBefore.net.him} />
+              <Net
+                label="both"
+                shape="both"
+                value={scoped.combined}
+                was={scopedBefore.combined}
+              />
             </div>
 
             <div className="mt-4 border-t pt-3" style={{ borderColor: 'var(--rule)' }}>
+              {/* The runway is the real answer to "can we", and it is whole-plan
+                  by nature: lengthening one phase moves every month after it. */}
               <div className="row">
-                <span className="row-label">Does it hold?</span>
-                <Verdict combined={preview.combined} />
+                <span className="row-label">
+                  Money lasts until
+                  <span className="row-meta block">
+                    across all {previewFlow.months.length} months
+                    {previewFlow.projectedDry && `, giving out ${previewFlow.projectedDry}`}
+                  </span>
+                </span>
+                <span className="text-right">
+                  <span
+                    className={`num text-[15px] ${
+                      previewFlow.firstMonthShort ? 'tint-brick' : 'tint-green'
+                    }`}
+                  >
+                    {previewFlow.firstMonthShort ?? previewFlow.lastsUntil ?? '—'}
+                  </span>
+                  {(previewFlow.firstMonthShort ?? previewFlow.lastsUntil) !==
+                    (baseFlow.firstMonthShort ?? baseFlow.lastsUntil) && (
+                    <span className="row-meta block">
+                      was {baseFlow.firstMonthShort ?? baseFlow.lastsUntil}
+                    </span>
+                  )}
+                </span>
+              </div>
+
+              <div className="row">
+                <span className="row-label">
+                  Does it hold?
+                  <span className="row-meta block">
+                    {previewFlow.monthsCovered} of {previewFlow.months.length} months covered
+                  </span>
+                </span>
+                <Verdict combined={previewFlow.firstMonthShort ? -1 : scoped.combined} />
               </div>
               <div className="row">
                 <span className="row-label">
@@ -283,6 +372,7 @@ export default function WhatIfPage() {
 
 function Slider({
   label,
+  note,
   value,
   min,
   max,
@@ -291,6 +381,8 @@ function Slider({
   onChange,
 }: {
   label: string;
+  /** What moving this actually changes — and, where it matters, what it does not. */
+  note?: string;
   value: number;
   min: number;
   max: number;
@@ -304,6 +396,7 @@ function Slider({
         <span className="text-[13.5px]">{label}</span>
         <span className="num text-[14px]">{format(value)}</span>
       </span>
+      {note && <span className="row-meta mt-0.5 block">{note}</span>}
       <input
         type="range"
         className="slider mt-2"
