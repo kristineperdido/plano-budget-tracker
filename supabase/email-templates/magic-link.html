@@ -1,0 +1,86 @@
+<!--
+  Plano — magic link email.
+
+  Paste into Supabase: Authentication > Emails > Magic Link.
+
+  {{ .ConfirmationURL }} MUST stay exactly as it is. The Supabase docs suggest
+  swapping it for a {{ .TokenHash }} URL, but that is for the server-side PKCE
+  flow. This app uses the implicit flow on purpose — PKCE keeps the verifier in
+  the localStorage of the browser that *asked* for the link, and a magic link is
+  usually opened from a mail app in a different browser, so the exchange can
+  never happen. AuthGate reads the session straight off the URL fragment.
+
+  Email clients ignore <link>, most strip <style>, and none will load Anton or
+  Caveat — so this is tables and inline styles, and the display type falls back
+  to bold letter-spaced system sans. It reads as the same thing without
+  pretending to be the real typeface.
+-->
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+       style="background:#241e15;margin:0;padding:32px 12px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+  <tr>
+    <td align="center">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:420px;">
+
+        <!-- Wordmark -->
+        <tr>
+          <td align="center" style="padding-bottom:10px;">
+            <span style="font-size:40px;line-height:1;font-weight:800;letter-spacing:.06em;color:#f4ead1;">PLANO</span>
+          </td>
+        </tr>
+
+        <!-- The tarpaulin stripe, as three cells -->
+        <tr>
+          <td style="padding-bottom:22px;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+              <tr>
+                <td height="5" style="background:#c1861e;font-size:0;line-height:0;">&nbsp;</td>
+                <td height="5" style="background:#2f7a82;font-size:0;line-height:0;">&nbsp;</td>
+                <td height="5" style="background:#b5432e;font-size:0;line-height:0;">&nbsp;</td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <!-- Paper slab -->
+        <tr>
+          <td style="background:#f4ead1;padding:28px 26px;">
+            <p style="margin:0 0 6px;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#2f7a82;">
+              Your way in
+            </p>
+            <p style="margin:0 0 18px;font-size:15px;line-height:1.5;color:#241e15;">
+              Tap below to open Plano. The link works once and expires shortly,
+              so use it on the phone you asked from.
+            </p>
+
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+              <tr>
+                <td align="center" bgcolor="#b5432e" style="background:#b5432e;">
+                  <a href="{{ .ConfirmationURL }}"
+                     style="display:block;padding:15px 20px;font-size:14px;font-weight:700;letter-spacing:.1em;
+                            text-transform:uppercase;color:#f4ead1;text-decoration:none;">
+                    Open Plano
+                  </a>
+                </td>
+              </tr>
+            </table>
+
+            <p style="margin:18px 0 0;font-size:12px;line-height:1.5;color:#6e6350;">
+              Didn&rsquo;t ask for this? Ignore it &mdash; nothing happens until the link is opened.
+            </p>
+            <p style="margin:10px 0 0;font-size:11px;line-height:1.5;color:#6e6350;word-break:break-all;">
+              If the button does nothing, paste this into your browser:<br />
+              <a href="{{ .ConfirmationURL }}" style="color:#b5432e;">{{ .ConfirmationURL }}</a>
+            </p>
+          </td>
+        </tr>
+
+        <tr>
+          <td align="center" style="padding-top:20px;">
+            <span style="font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:#6e6350;">Manila &middot; PHP</span>
+          </td>
+        </tr>
+
+      </table>
+    </td>
+  </tr>
+</table>
