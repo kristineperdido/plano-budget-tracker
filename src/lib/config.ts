@@ -65,14 +65,33 @@ export type Scheme = {
   items: LineItem[];
 };
 
+/**
+ * Money arriving during a phase. Named rather than fixed, because "a salary"
+ * and "a side hustle" are not the only two shapes income takes — and the name
+ * is what shows up in the month-by-month breakdown, so it should be the one
+ * the couple actually use.
+ */
+export type IncomeSource = {
+  id: string;
+  label: string;
+  owner: 'her' | 'him';
+  /** Per month, for the duration of the phase. */
+  amount: number;
+};
+
 export type Phase = {
   id: string;
   label: string;
   /** What this stretch of the plan actually means. "Between jobs" is a label; this says why. */
   note?: string;
   months: number;
-  /** Per month, for the duration of the phase. */
-  income: { her: number; him: number; herSideHustle: number };
+  /**
+   * The month this phase begins, as YYYY-MM. Explicit rather than assumed to
+   * follow the one before, so a phase can be moved without shunting every
+   * other one along with it.
+   */
+  from: string;
+  income: IncomeSource[];
   /** Which scheme's lines apply during this phase. */
   schemeId: string;
   /** Who carries the food bill during this phase. */
@@ -126,7 +145,13 @@ export type LegacyConfig = Omit<Config, 'schemes' | 'pending' | 'phases'> & {
   items?: LineItem[];
   schemes?: Scheme[];
   pending?: LineItem[];
-  phases?: (Omit<Phase, 'schemeId'> & { schemeId?: string; payers?: Record<string, Payer> })[];
+  phases?: (Omit<Phase, 'schemeId' | 'income' | 'from'> & {
+    schemeId?: string;
+    payers?: Record<string, Payer>;
+    from?: string;
+    /** Income before it was a named list. */
+    income: IncomeSource[] | { her: number; him: number; herSideHustle: number };
+  })[];
 };
 
 /** Shapes the food config has had before. */
@@ -226,9 +251,12 @@ export const DEFAULT_CONFIG: Config = {
       id: 'gap',
       label: 'Between jobs',
       note: 'tin is not earning yet, so jhay carries the rent and the bills',
+      from: '2026-09',
       months: 2,
-      // ₱13,950 a cutoff, twice a month.
-      income: { her: 0, him: 27900, herSideHustle: 0 },
+      income: [
+        // ₱13,950 a cutoff, twice a month.
+        { id: 'jhay-pay', label: "Jhay's pay", owner: 'him', amount: 27900 },
+      ],
       schemeId: 'standard',
       foodPayer: 'split',
     },
@@ -236,8 +264,9 @@ export const DEFAULT_CONFIG: Config = {
       id: 'stretch',
       label: 'Running on savings',
       note: 'still no second income — this is the stretch that shows how long the money lasts',
+      from: '2026-11',
       months: 3,
-      income: { her: 0, him: 27900, herSideHustle: 0 },
+      income: [{ id: 'jhay-pay', label: "Jhay's pay", owner: 'him', amount: 27900 }],
       schemeId: 'standard',
       foodPayer: 'split',
     },
@@ -284,6 +313,13 @@ export function dayTypeTint(dayTypes: DayType[], id: string): 'green' | 'gold' |
   if (sorted[0].id === id) return 'green';
   if (sorted[sorted.length - 1].id === id) return 'brick';
   return 'gold';
+}
+
+/** What a phase brings in per month, by person. */
+export function incomeOf(phase: Phase | null): { her: number; him: number } {
+  const out = { her: 0, him: 0 };
+  for (const src of phase?.income ?? []) out[src.owner] += src.amount;
+  return out;
 }
 
 /** The scheme in force during a phase, falling back to the first one. */

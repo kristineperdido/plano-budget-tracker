@@ -133,7 +133,7 @@ export function computeCashflow(
   config: Config,
   options: CashflowOptions = ALL_IN,
 ): Cashflow {
-  const months = totalMonths(config.phases);
+  const months = totalMonths(config.phases, config.startMonth);
 
   // Reserves only count if the plan is allowed to spend them.
   const reserves = { committed: 0, uncertain: 0, backup: 0 };
@@ -154,20 +154,15 @@ export function computeCashflow(
   let totalGap = 0;
 
   for (let i = 0; i < months; i++) {
-    const phase = phaseOf(config.phases, i);
+    const phase = phaseOf(config.phases, i, config.startMonth);
     const month = monthOfIndex(config.startMonth, i);
 
-    const income = phase
-      ? phase.income.her + phase.income.herSideHustle + phase.income.him
-      : 0;
-
-    const incomeLines: FlowLine[] = [];
-    if (phase) {
-      if (phase.income.him > 0) incomeLines.push({ id: 'him', label: "Jhay's pay", amount: phase.income.him });
-      if (phase.income.her > 0) incomeLines.push({ id: 'her', label: "Tin's pay", amount: phase.income.her });
-      if (phase.income.herSideHustle > 0)
-        incomeLines.push({ id: 'hustle', label: 'Side hustle', amount: phase.income.herSideHustle });
-    }
+    // The names come straight from the phase, so whatever the couple called a
+    // source is what the breakdown shows.
+    const incomeLines: FlowLine[] = (phase?.income ?? [])
+      .filter((src) => src.amount > 0)
+      .map((src) => ({ id: src.id, label: src.label, amount: src.amount }));
+    const income = incomeLines.reduce((a, l) => a + l.amount, 0);
 
     // The terms in force this month come from the phase's scheme.
     let bills = 0;

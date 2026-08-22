@@ -19,9 +19,11 @@ type Knobs = {
   /** Which phase the phase-specific sliders act on. */
   phaseId: string;
   months: number;
-  herIncome: number;
-  himIncome: number;
-  sideHustle: number;
+  /**
+   * One slider per income source the phase actually has, keyed by its id —
+   * there is no longer a fixed set of three to hard-code.
+   */
+  income: Record<string, number>;
   /** These two apply to the whole plan, not to one phase. */
   foodPerDay: number;
   uncertainMoney: number;
@@ -37,9 +39,7 @@ function knobsFrom(config: Config, phaseId?: string): Knobs {
   return {
     phaseId: phase?.id ?? '',
     months: phase?.months ?? 1,
-    herIncome: phase?.income.her ?? 0,
-    himIncome: phase?.income.him ?? 0,
-    sideHustle: phase?.income.herSideHustle ?? 0,
+    income: Object.fromEntries((phase?.income ?? []).map((src) => [src.id, src.amount])),
     foodPerDay: Math.round(foodForecast(config.food).foodPerDay),
     uncertainMoney: uncertain?.amount ?? 0,
   };
@@ -65,7 +65,7 @@ function applyKnobs(config: Config, k: Knobs): Config {
         ? {
             ...p,
             months: k.months,
-            income: { her: k.herIncome, him: k.himIncome, herSideHustle: k.sideHustle },
+            income: p.income.map((src) => ({ ...src, amount: k.income[src.id] ?? src.amount })),
           }
         : p,
     ),
@@ -159,7 +159,15 @@ export default function WhatIfPage() {
   return (
     <Screen
       title="What if"
-      meta={saving ? 'applying…' : dirty ? 'not saved' : applied ? 'applied' : 'in sync'}
+      meta={
+        saving
+          ? 'applying…'
+          : dirty
+            ? 'not saved'
+            : // Which phase the sliders are acting on, once nothing is pending.
+              (config?.phases.find((p) => p.id === knobs?.phaseId)?.label ??
+              (applied ? 'applied' : 'in sync'))
+      }
     >
       {error && (
         <p className="tint-brick mt-4 text-[12.5px]" role="alert">
@@ -210,36 +218,29 @@ export default function WhatIfPage() {
             format={(v) => `${v} ${v === 1 ? 'month' : 'months'}`}
             onChange={(v) => setKnobs({ ...knobs, months: v })}
           />
-          <Slider
-            label="Tin earns"
-            note="her take-home each month of this phase only"
-            value={knobs.herIncome}
-            min={0}
-            max={80000}
-            step={1000}
-            format={(v) => `${php(v)}/mo`}
-            onChange={(v) => setKnobs({ ...knobs, herIncome: v })}
-          />
-          <Slider
-            label="Jhay earns"
-            note="his take-home each month of this phase only"
-            value={knobs.himIncome}
-            min={0}
-            max={80000}
-            step={1000}
-            format={(v) => `${php(v)}/mo`}
-            onChange={(v) => setKnobs({ ...knobs, himIncome: v })}
-          />
-          <Slider
-            label="Side hustle"
-            note="added to tin's income, on top of what she earns above"
-            value={knobs.sideHustle}
-            min={0}
-            max={20000}
-            step={500}
-            format={(v) => `${php(v)}/mo`}
-            onChange={(v) => setKnobs({ ...knobs, sideHustle: v })}
-          />
+          {/* A slider for each source this phase actually has, named as the
+              couple named it. */}
+          {(config.phases.find((p) => p.id === knobs.phaseId)?.income ?? []).map((src) => (
+            <Slider
+              key={src.id}
+              label={src.label}
+              note={`${src.owner === 'her' ? 'tin' : 'jhay'}'s, each month of this phase`}
+              value={knobs.income[src.id] ?? 0}
+              min={0}
+              max={80000}
+              step={500}
+              format={(v) => `${php(v)}/mo`}
+              onChange={(v) =>
+                setKnobs({ ...knobs, income: { ...knobs.income, [src.id]: v } })
+              }
+            />
+          ))}
+
+          {(config.phases.find((p) => p.id === knobs.phaseId)?.income ?? []).length === 0 && (
+            <p className="empty mb-5">
+              nothing comes in during this phase — add a source in Settings
+            </p>
+          )}
 
           <div className="leader mt-5 mb-3">
             <h3 className="sign-label tint-teal">Across the whole plan</h3>

@@ -8,6 +8,7 @@ import type { CategoryDef, Phase } from '@/lib/config';
 import { useConfig } from '@/lib/useConfig';
 import { fetchMembers, type Member } from '@/lib/members';
 import { totalMonths } from '@/lib/engine';
+import { monthOfIndex } from '@/lib/date';
 import { php } from '@/lib/model';
 import { supabase } from '@/lib/supabase';
 import { useSession } from '@/components/AuthGate';
@@ -101,7 +102,7 @@ export default function SettingsPage() {
     [config, persist],
   );
 
-  const months = useMemo(() => (config ? totalMonths(config.phases) : 0), [config]);
+  const months = useMemo(() => (config ? totalMonths(config.phases, config.startMonth) : 0), [config]);
 
   return (
     <Screen title="Settings" meta={saving ? 'saving…' : undefined}>
@@ -398,51 +399,150 @@ export default function SettingsPage() {
                   </select>
                 </div>
 
+                {/* When it runs. Stated rather than assumed to follow the
+                    phase before, so moving one leaves the others where they
+                    are. */}
                 <div className="row">
-                  <PayerTag payer="her" />
-                  <span className="row-label">Income per month</span>
-                  <AmountField
-                    label={`Tin's monthly income during ${p.label}`}
-                    value={p.income.her}
-                    onCommit={(v) =>
-                      updatePhase(
-                        p.id,
-                        { income: { ...p.income, her: v } },
-                        `${p.label}: tin earns ${php(v)}/mo`,
-                      )
+                  <span className="row-label">
+                    Starts
+                    <span className="row-meta block">and runs for the months below</span>
+                  </span>
+                  <input
+                    type="month"
+                    aria-label={`Month ${p.label} starts`}
+                    className="field text-[13px]"
+                    style={{ width: '8.5rem' }}
+                    value={p.from}
+                    onChange={(e) =>
+                      updatePhase(p.id, { from: e.target.value }, `${p.label} starts ${e.target.value}`)
                     }
                   />
                 </div>
-                <div className="row">
-                  <PayerTag payer="him" />
-                  <span className="row-label">Income per month</span>
-                  <AmountField
-                    label={`Jhay's monthly income during ${p.label}`}
-                    value={p.income.him}
-                    onCommit={(v) =>
-                      updatePhase(
-                        p.id,
-                        { income: { ...p.income, him: v } },
-                        `${p.label}: jhay earns ${php(v)}/mo`,
-                      )
-                    }
-                  />
+
+                {/* Named sources, however many there are. */}
+                <div className="leader mt-3 mb-1">
+                  <span className="sign-label tint-teal">Money coming in</span>
+                  <span className="leader-fill" aria-hidden />
+                  <span className="num text-[13px]">
+                    {php(p.income.reduce((a, x) => a + x.amount, 0))}/mo
+                  </span>
                 </div>
-                <div className="row">
-                  <PayerTag payer="her" />
-                  <span className="row-label">Side hustle per month</span>
-                  <AmountField
-                    label={`Tin's side hustle during ${p.label}`}
-                    value={p.income.herSideHustle}
-                    onCommit={(v) =>
-                      updatePhase(
-                        p.id,
-                        { income: { ...p.income, herSideHustle: v } },
-                        `${p.label}: side hustle ${php(v)}/mo`,
-                      )
-                    }
-                  />
-                </div>
+
+                {p.income.length === 0 && <p className="empty py-2">nothing coming in</p>}
+
+                {p.income.map((src) => (
+                  <div key={src.id}>
+                    <div className="row">
+                      <button
+                        type="button"
+                        className="flex-none"
+                        aria-label={`Whose ${src.label} this is`}
+                        onClick={() =>
+                          updatePhase(
+                            p.id,
+                            {
+                              income: p.income.map((x) =>
+                                x.id === src.id
+                                  ? { ...x, owner: x.owner === 'her' ? 'him' : 'her' }
+                                  : x,
+                              ),
+                            },
+                            `${src.label} is now ${src.owner === 'her' ? 'jhay' : 'tin'}'s`,
+                          )
+                        }
+                      >
+                        <PayerTag payer={src.owner} />
+                      </button>
+
+                      <input
+                        aria-label={`Name of ${src.label}`}
+                        className="name-field"
+                        value={src.label}
+                        onChange={(e) =>
+                          setConfig({
+                            ...config,
+                            phases: config.phases.map((x) =>
+                              x.id === p.id
+                                ? {
+                                    ...x,
+                                    income: x.income.map((y) =>
+                                      y.id === src.id ? { ...y, label: e.target.value } : y,
+                                    ),
+                                  }
+                                : x,
+                            ),
+                          })
+                        }
+                        onBlur={(e) =>
+                          updatePhase(
+                            p.id,
+                            {
+                              income: p.income.map((x) =>
+                                x.id === src.id ? { ...x, label: e.target.value } : x,
+                              ),
+                            },
+                            `Income renamed to ${e.target.value}`,
+                          )
+                        }
+                      />
+
+                      <AmountField
+                        label={`${src.label} per month`}
+                        value={src.amount}
+                        onCommit={(v) =>
+                          updatePhase(
+                            p.id,
+                            {
+                              income: p.income.map((x) =>
+                                x.id === src.id ? { ...x, amount: v } : x,
+                              ),
+                            },
+                            `${src.label} set to ${php(v)}/mo`,
+                          )
+                        }
+                      />
+
+                      <button
+                        type="button"
+                        className="tap-target"
+                        aria-label={`Remove ${src.label}`}
+                        onClick={() =>
+                          updatePhase(
+                            p.id,
+                            { income: p.income.filter((x) => x.id !== src.id) },
+                            `Removed ${src.label}`,
+                          )
+                        }
+                      >
+                        <span className="chip chip--sm tint-brick">×</span>
+                      </button>
+                    </div>
+                  </div>
+                ))}
+
+                <button
+                  type="button"
+                  className="btn btn--dashed"
+                  onClick={() =>
+                    updatePhase(
+                      p.id,
+                      {
+                        income: [
+                          ...p.income,
+                          {
+                            id: `income-${Date.now()}`,
+                            label: 'Something coming in',
+                            owner: 'her' as const,
+                            amount: 0,
+                          },
+                        ],
+                      },
+                      `Added an income source to ${p.label}`,
+                    )
+                  }
+                >
+                  + another source
+                </button>
 
                 {config.phases.length > 1 && (
                   <button
@@ -473,8 +573,15 @@ export default function SettingsPage() {
                       {
                         id: `phase-${Date.now()}`,
                         label: 'New phase',
+                        // Starts where the plan currently ends, which is the
+                        // usual intent — and can be moved without touching
+                        // anything else.
+                        from: monthOfIndex(
+                          config.startMonth,
+                          totalMonths(config.phases, config.startMonth),
+                        ),
                         months: 1,
-                        income: { her: 0, him: 0, herSideHustle: 0 },
+                        income: [],
                         schemeId: config.schemes[0].id,
                         foodPayer: 'split',
                       },

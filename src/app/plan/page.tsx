@@ -61,7 +61,7 @@ export default function PlanPage() {
     () => (config ? phaseSpans(config, currentMonth) : []),
     [config, currentMonth],
   );
-  const months = config ? totalMonths(config.phases) : 0;
+  const months = config ? totalMonths(config.phases, config.startMonth) : 0;
   const currentSpan = spans.find((s) => currentMonth >= s.from && currentMonth <= s.to) ?? null;
   /** 'all' reads the whole timeline; anything else is a phase id. */
   const whole = viewPhase === 'all';
@@ -157,7 +157,18 @@ export default function PlanPage() {
   );
 
   return (
-    <Screen title="Plan" meta={plan ? `${months} months` : undefined}>
+    <Screen
+      title="Plan"
+      meta={
+        !plan
+          ? undefined
+          : whole
+            ? `all ${months} months`
+            : active
+              ? `${spanLabel(active)}`
+              : undefined
+      }
+    >
       {(error ?? configError) && (
         <p className="tint-brick mt-4 text-[12.5px]" role="alert">
           {error ?? configError}
@@ -371,7 +382,16 @@ export default function PlanPage() {
             </button>
           </div>
 
-          {flow && <CashflowPanel flow={flow} />}
+          {flow && (
+            <CashflowPanel
+              flow={flow}
+              // Scoped like everything else below the selector. The table used
+              // to show all five months whichever phase was selected, so income
+              // set on one phase looked missing while reading another.
+              only={whole || !active ? undefined : { from: active.from, to: active.to }}
+              label={whole || !active ? `All ${months} months` : active.phase.label}
+            />
+          )}
 
           {/* Items whose start month falls outside the plan are charged to
               nothing at all. Silence there let a 9,999/month cost move the net

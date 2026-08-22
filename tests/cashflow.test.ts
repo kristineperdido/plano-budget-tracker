@@ -133,8 +133,8 @@ const round = (x: number) => Math.round(x);
   const c = clone(DEFAULT_CONFIG);
   // All the money arrives, but only at the very end.
   c.phases = [
-    { id: 'lean', label: 'Lean', months: 2, income: { her: 0, him: 0, herSideHustle: 0 }, schemeId: 'standard', foodPayer: 'split' },
-    { id: 'flush', label: 'Flush', months: 1, income: { her: 200000, him: 0, herSideHustle: 0 }, schemeId: 'standard', foodPayer: 'split' },
+    { id: 'lean', label: 'Lean', from: '2026-09', months: 2, income: [], schemeId: 'standard', foodPayer: 'split' },
+    { id: 'flush', label: 'Flush', from: '2026-11', months: 1, income: [{ id: 'her', label: "Tin's pay", owner: 'her' as const, amount: 200000 }, ], schemeId: 'standard', foodPayer: 'split' },
   ];
   const plan = computePlan(c, { includeUncertain: true, includePending: false });
   const f = computeCashflow(c);
@@ -153,7 +153,7 @@ const round = (x: number) => Math.round(x);
   const c = clone(DEFAULT_CONFIG);
   c.schemes[0].items = [];               // no costs at all
   c.moneyIn = [];             // no reserves
-  c.phases = [{ id: 'p', label: 'P', months: 2, income: { her: 50000, him: 0, herSideHustle: 0 }, schemeId: 'standard', foodPayer: 'split' }];
+  c.phases = [{ id: 'p', label: 'P', from: '2026-09', months: 2, income: [{ id: 'her', label: "Tin's pay", owner: 'her' as const, amount: 50000 }, ], schemeId: 'standard', foodPayer: 'split' }];
   const f = computeCashflow(c);
 
   assert.ok(f.months[0].gap > 0);

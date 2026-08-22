@@ -1,4 +1,5 @@
 import { monthOfIndex } from './date';
+import { phaseRange } from './engine';
 import type { Config, Phase } from './config';
 
 /** Where a phase sits on the calendar, and how far through it you are. */
@@ -35,10 +36,10 @@ export function spanLabel(span: PhaseSpan): string {
 /** Lay the phases out along the calendar, given where the plan starts. */
 export function phaseSpans(config: Config, currentMonth: number): PhaseSpan[] {
   const out: PhaseSpan[] = [];
-  let offset = 0;
   for (const phase of config.phases) {
-    const from = offset;
-    const to = offset + phase.months - 1;
+    // Each phase says where it starts, so its position no longer depends on
+    // what came before it in the list.
+    const { from, to } = phaseRange(config.startMonth, phase);
     out.push({
       phase,
       from,
@@ -48,7 +49,8 @@ export function phaseSpans(config: Config, currentMonth: number): PhaseSpan[] {
       elapsed:
         currentMonth < from ? null : Math.min(currentMonth - from + 1, phase.months),
     });
-    offset += phase.months;
   }
-  return out;
+  // In list order the earlier phase wins an overlap; sorted, the strip reads
+  // as a timeline.
+  return out.sort((a, b) => a.from - b.from);
 }

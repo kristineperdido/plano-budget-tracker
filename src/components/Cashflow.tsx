@@ -27,16 +27,31 @@ function tintOf(m: MonthFlow): string {
  * It is a table: what came in, what went out, and how far short. Which kind of
  * money covered each month is carried by the tint, matching the runway's key.
  */
-export function CashflowPanel({ flow }: { flow: Cashflow; potLabel?: string }) {
+export function CashflowPanel({
+  flow,
+  only,
+  label,
+}: {
+  flow: Cashflow;
+  /** Month indices to show. Omitted means the whole plan. */
+  only?: { from: number; to: number };
+  /** What the rows are of, so the card says which scope you are reading. */
+  label?: string;
+  potLabel?: string;
+}) {
   /** Which month is opened out. One at a time keeps the table readable. */
   const [expanded, setExpanded] = useState<string | null>(null);
-  const totalOut = flow.months.reduce((s, m) => s + m.out, 0);
-  const totalIn = flow.months.reduce((s, m) => s + m.income, 0);
+  const shown = only
+    ? flow.months.filter((m) => m.index >= only.from && m.index <= only.to)
+    : flow.months;
+  const totalOut = shown.reduce((s, m) => s + m.out, 0);
+  const totalIn = shown.reduce((s, m) => s + m.income, 0);
+  const shownGap = shown.reduce((s, m) => s + Math.max(0, -m.gap), 0);
   const reservesTotal = flow.reserves.committed + flow.reserves.uncertain + flow.reserves.backup;
   const leftAtEnd = reservesTotal - flow.totalGap;
 
   return (
-    <Card title="Month by month" tape="left">
+    <Card title="Month by month" amount={label} tape="left">
       <div className="num" style={{ fontSize: 12.5 }}>
         <div
           className="flex items-baseline gap-2 border-b pb-1.5"
@@ -52,7 +67,7 @@ export function CashflowPanel({ flow }: { flow: Cashflow; potLabel?: string }) {
           <span className="sign-label tint-muted flex-1 text-right">Short</span>
         </div>
 
-        {flow.months.map((m) => {
+        {shown.map((m) => {
           const open = expanded === m.month;
           return (
             <div key={m.month} className="border-b border-dotted" style={{ borderColor: 'var(--rule)' }}>
@@ -118,16 +133,20 @@ export function CashflowPanel({ flow }: { flow: Cashflow; potLabel?: string }) {
 
         <div className="flex items-baseline gap-2 pt-3">
           <span className="sign-label tint-muted" style={{ width: 66 }}>
-            All
+            {only ? 'Phase' : 'All'}
           </span>
           <span className="flex-1 text-right">{php(totalIn)}</span>
           <span className="flex-1 text-right">{php(totalOut)}</span>
-          <span className="tint-brick flex-1 text-right">−{php(flow.totalGap)}</span>
+          <span className="tint-brick flex-1 text-right">−{php(shownGap)}</span>
         </div>
       </div>
 
-      {/* What has to cover that shortfall, and in what order it gets spent. */}
+      {/* Reserves are drawn on across the whole plan, so this half never
+          narrows to a phase — it would be meaningless split up. */}
       <div className="mt-4 border-t pt-2" style={{ borderColor: 'var(--rule)' }}>
+        {only && (
+          <p className="row-meta mb-1">across all {flow.months.length} months, not just this phase</p>
+        )}
         <div className="row">
           <span className="row-label">
             Money you can count on

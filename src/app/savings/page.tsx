@@ -26,7 +26,7 @@ import type { FoodEntry } from '@/lib/types';
 function monthsSoFar(config: Config, today: string): string[] {
   const out: string[] = [];
   const [sy, sm] = config.startMonth.split('-').map(Number);
-  const span = totalMonths(config.phases);
+  const span = totalMonths(config.phases, config.startMonth);
   const current = monthIndexOf(config.startMonth, today);
 
   for (let i = 0; i <= Math.min(current, span - 1); i++) {

@@ -217,7 +217,9 @@ export default function LedgerPage() {
         saving || savingBill ? (
           <span className="marker tint-gold text-[17px]">saving…</span>
         ) : (
-          `${active.length} items`
+          // Which set of terms is on screen, since the rows below belong to one
+          // scheme rather than to the plan as a whole.
+          scheme?.label ?? undefined
         )
       }
     >

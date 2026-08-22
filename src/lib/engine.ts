@@ -1,5 +1,13 @@
 import { daysCoveredInMonth, monthOfIndex } from './date';
-import { schemeFor, type Config, type FoodConfig, type LineItem, type Payer, type Phase } from './config';
+import {
+  incomeOf,
+  schemeFor,
+  type Config,
+  type FoodConfig,
+  type LineItem,
+  type Payer,
+  type Phase,
+} from './config';
 
 export type ExtraForecast = {
   id: string;
@@ -80,18 +88,39 @@ export function applyPayer(amount: number, payer: Payer): Split {
   }
 }
 
-/** Months are laid end to end; phase p owns a contiguous run of them. */
-export function phaseOf(phases: Phase[], month: number): Phase | null {
-  let offset = 0;
+/**
+ * Where a phase sits, as month indices from the plan's own start.
+ *
+ * A phase names the month it begins rather than being assumed to follow the one
+ * before, so moving one does not shunt the rest along. `startMonth` is needed to
+ * turn a calendar month into an index; without it the caller is working in a
+ * different coordinate system from the line items.
+ */
+export function phaseRange(startMonth: string, phase: Phase): { from: number; to: number } {
+  const [sy, sm] = startMonth.split('-').map(Number);
+  const [py, pm] = phase.from.split('-').map(Number);
+  const from = (py - sy) * 12 + (pm - sm);
+  return { from, to: from + phase.months - 1 };
+}
+
+/**
+ * The phase covering a month, or null. Phases may leave gaps — a month nothing
+ * covers is simply not part of the plan — and where two overlap the earlier one
+ * in the list wins, so the result is always defined.
+ */
+export function phaseOf(phases: Phase[], month: number, startMonth = '1970-01'): Phase | null {
   for (const p of phases) {
-    if (month >= offset && month < offset + p.months) return p;
-    offset += p.months;
+    const r = phaseRange(startMonth, p);
+    if (month >= r.from && month <= r.to) return p;
   }
   return null;
 }
 
-export function totalMonths(phases: Phase[]): number {
-  return phases.reduce((s, p) => s + p.months, 0);
+/** How far the plan reaches: the end of its furthest phase. */
+export function totalMonths(phases: Phase[], startMonth = '1970-01'): number {
+  let end = 0;
+  for (const p of phases) end = Math.max(end, phaseRange(startMonth, p).to + 1);
+  return Math.max(0, end);
 }
 
 function isActive(item: LineItem, month: number): boolean {
@@ -150,7 +179,7 @@ export type PlanResult = {
 };
 
 export function computePlan(config: Config, options: Options): PlanResult {
-  const all = totalMonths(config.phases);
+  const all = totalMonths(config.phases, config.startMonth);
   const from = options.window?.from ?? 0;
   const to = Math.min(options.window?.to ?? all - 1, all - 1);
   const months = Math.max(0, to - from + 1);
@@ -180,7 +209,7 @@ export function computePlan(config: Config, options: Options): PlanResult {
     let split = ZERO;
 
     for (let m = from; m <= to; m++) {
-      const phase = phaseOf(config.phases, m);
+      const phase = phaseOf(config.phases, m, config.startMonth);
       if (!phase) continue;
 
       // The terms in force this month come from the phase's scheme. A line
@@ -212,7 +241,7 @@ export function computePlan(config: Config, options: Options): PlanResult {
   let foodSplit = ZERO;
   let foodBudgetedPerMonth = 0;
   for (let m = from; m <= to; m++) {
-    const phase = phaseOf(config.phases, m);
+    const phase = phaseOf(config.phases, m, config.startMonth);
     if (!phase) continue;
     const cal = monthOfIndex(config.startMonth, m);
     const monthFood = config.food.dailyBudget * daysCoveredInMonth(config.startDate, cal);
@@ -225,12 +254,9 @@ export function computePlan(config: Config, options: Options): PlanResult {
   // Income accrues per month at the rate of whichever phase that month is in.
   let income = ZERO;
   for (let m = from; m <= to; m++) {
-    const phase = phaseOf(config.phases, m);
+    const phase = phaseOf(config.phases, m, config.startMonth);
     if (!phase) continue;
-    income = add(income, {
-      her: phase.income.her + phase.income.herSideHustle,
-      him: phase.income.him,
-    });
+    income = add(income, incomeOf(phase));
   }
 
   let moneyIn = ZERO;

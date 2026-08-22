@@ -21,7 +21,7 @@ export function previousMonth(month: string): string {
 /** Which line items the plan expects to be paid in a given calendar month. */
 export function billsDueIn(config: Config, month: string): LineItem[] {
   const index = monthIndexOf(config.startMonth, `${month}-01`);
-  const phase = phaseOf(config.phases, index);
+  const phase = phaseOf(config.phases, index, config.startMonth);
   if (index < 0 || !phase) return [];
   // Which lines are due depends on the scheme in force that month, so a cost
   // that only exists in one scheme is only ever asked about while it applies.

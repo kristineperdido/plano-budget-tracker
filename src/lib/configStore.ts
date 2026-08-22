@@ -96,8 +96,45 @@ function migrate(stored: Config): Config {
  * and any payer overrides a phase carried become a scheme of their own, so
  * nothing that was set is quietly lost.
  */
+/**
+ * Income used to be three fixed slots — hers, his, and a side hustle — and a
+ * phase was assumed to begin wherever the previous one ended. Both are now
+ * explicit: named sources, and a stated start month. Old phases are laid end to
+ * end exactly where they used to sit, so nothing moves.
+ */
+function migratePhases(stored: LegacyConfig): Config['phases'] {
+  const raw = stored.phases?.length ? stored.phases : DEFAULT_CONFIG.phases;
+  const start = stored.startMonth ?? DEFAULT_CONFIG.startMonth;
+  const [sy, sm] = start.split('-').map(Number);
+
+  let offset = 0;
+  return raw.map((p) => {
+    const legacy = p as { income?: unknown; from?: string; months: number };
+    const income = Array.isArray(legacy.income)
+      ? (legacy.income as Config['phases'][number]['income'])
+      : (() => {
+          const old = legacy.income as { her: number; him: number; herSideHustle: number };
+          const out: Config['phases'][number]['income'] = [];
+          if (old?.him) out.push({ id: 'him-pay', label: "Jhay's pay", owner: 'him', amount: old.him });
+          if (old?.her) out.push({ id: 'her-pay', label: "Tin's pay", owner: 'her', amount: old.her });
+          if (old?.herSideHustle)
+            out.push({ id: 'her-hustle', label: 'Side hustle', owner: 'her', amount: old.herSideHustle });
+          return out;
+        })();
+
+    // Where it already sat, stated outright.
+    const t = sm + offset;
+    const from =
+      legacy.from ??
+      `${sy + Math.floor((t - 1) / 12)}-${String(((t - 1) % 12) + 1).padStart(2, '0')}`;
+    offset += legacy.months;
+
+    return { ...(p as object), from, income } as Config['phases'][number];
+  });
+}
+
 function migrateSchemes(stored: LegacyConfig): Pick<Config, 'phases' | 'schemes' | 'pending'> {
-  const phases = (stored.phases?.length ? stored.phases : DEFAULT_CONFIG.phases) as Config['phases'];
+  const phases = migratePhases(stored);
 
   if (stored.schemes?.length) {
     return {

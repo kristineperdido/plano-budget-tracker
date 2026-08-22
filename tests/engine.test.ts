@@ -65,8 +65,8 @@ const clone = (c: Config): Config => JSON.parse(JSON.stringify(c));
 {
   const c = clone(DEFAULT_CONFIG);
   c.phases = [
-    { id: 'a', label: 'A', months: 1, income: { her: 0, him: 27400, herSideHustle: 0 }, schemeId: 'standard', foodPayer: 'split' },
-    { id: 'b', label: 'B', months: 1, income: { her: 30000, him: 27400, herSideHustle: 0 }, schemeId: 'standard', foodPayer: 'split' },
+    { id: 'a', label: 'A', from: '2026-09', months: 1, income: [{ id: 'him', label: "Jhay's pay", owner: 'him' as const, amount: 27400 }, ], schemeId: 'standard', foodPayer: 'split' },
+    { id: 'b', label: 'B', from: '2026-10', months: 1, income: [{ id: 'him', label: "Jhay's pay", owner: 'him' as const, amount: 27400 }, { id: 'her', label: "Tin's pay", owner: 'her' as const, amount: 30000 }, ], schemeId: 'standard', foodPayer: 'split' },
   ];
 
   const whole = computePlan(c, { includeUncertain: true, includePending: false });
@@ -129,17 +129,19 @@ assert.deepEqual(applyPayer(100, 'her'), { her: 100, him: 0 });
   c.phases = [
     {
       id: 'gap',
+      from: '2026-09',
       label: 'Between jobs',
       months: 2,
-      income: { her: 0, him: 27900, herSideHustle: 0 },
+      income: [{ id: 'him', label: "Jhay's pay", owner: 'him' as const, amount: 27900 }, ],
       schemeId: 'standard',
       foodPayer: 'split',
     },
     {
       id: 'employed',
+      from: '2026-11',
       label: 'She is working',
       months: 2,
-      income: { her: 20000, him: 27900, herSideHustle: 0 },
+      income: [{ id: 'him', label: "Jhay's pay", owner: 'him' as const, amount: 27900 }, { id: 'her', label: "Tin's pay", owner: 'her' as const, amount: 20000 }, ],
       schemeId: 'even',
       foodPayer: 'split',
     },
@@ -158,18 +160,40 @@ assert.deepEqual(applyPayer(100, 'her'), { her: 100, him: 0 });
   assert.equal(r.income.him, 27900 * 4);
 }
 
-// ---- 6. Phase boundaries ----
+// ---- 6. Phase boundaries, from each phase's own start month ----
 {
+  const START = '2026-09';
   const phases = [
-    { id: 'a', label: 'A', months: 2, income: { her: 0, him: 0, herSideHustle: 0 }, schemeId: 'standard', foodPayer: 'split' as const },
-    { id: 'b', label: 'B', months: 3, income: { her: 0, him: 0, herSideHustle: 0 }, schemeId: 'standard', foodPayer: 'split' as const },
+    { id: 'a', label: 'A', from: '2026-09', months: 2, income: [], schemeId: 'standard', foodPayer: 'split' as const },
+    { id: 'b', label: 'B', from: '2026-11', months: 3, income: [], schemeId: 'standard', foodPayer: 'split' as const },
   ];
-  assert.equal(totalMonths(phases), 5);
-  assert.equal(phaseOf(phases, 0)?.id, 'a');
-  assert.equal(phaseOf(phases, 1)?.id, 'a');
-  assert.equal(phaseOf(phases, 2)?.id, 'b');
-  assert.equal(phaseOf(phases, 4)?.id, 'b');
-  assert.equal(phaseOf(phases, 5), null, 'past the end is not a phase');
+  assert.equal(totalMonths(phases, START), 5);
+  assert.equal(phaseOf(phases, 0, START)?.id, 'a');
+  assert.equal(phaseOf(phases, 1, START)?.id, 'a');
+  assert.equal(phaseOf(phases, 2, START)?.id, 'b');
+  assert.equal(phaseOf(phases, 4, START)?.id, 'b');
+  assert.equal(phaseOf(phases, 5, START), null, 'past the end is not a phase');
+}
+
+// ---- 6b. A phase says where it begins, so a gap is allowed ----
+// Nothing covers the gap months, and the plan still reaches its furthest end.
+{
+  const START = '2026-09';
+  const phases = [
+    { id: 'a', label: 'A', from: '2026-09', months: 1, income: [], schemeId: 'standard', foodPayer: 'split' as const },
+    { id: 'b', label: 'B', from: '2026-12', months: 2, income: [], schemeId: 'standard', foodPayer: 'split' as const },
+  ];
+  assert.equal(totalMonths(phases, START), 5, 'reaches the end of the later phase');
+  assert.equal(phaseOf(phases, 0, START)?.id, 'a');
+  assert.equal(phaseOf(phases, 1, START), null, 'October is not covered');
+  assert.equal(phaseOf(phases, 2, START), null, 'nor November');
+  assert.equal(phaseOf(phases, 3, START)?.id, 'b');
+
+  // Moving the later phase does not disturb the earlier one.
+  const moved = [phases[0], { ...phases[1], from: '2027-01' }];
+  assert.equal(phaseOf(moved, 0, START)?.id, 'a', 'the first phase stays put');
+  assert.equal(phaseOf(moved, 4, START)?.id, 'b');
+  assert.equal(totalMonths(moved, START), 6);
 }
 
 // ---- 7. Food forecast still matches the spec ----
@@ -251,13 +275,24 @@ assert.deepEqual(applyPayer(100, 'her'), { her: 100, him: 0 });
   assert.equal(Math.round(f.perMonth), 15514);
 }
 
-// ---- 8. Side hustle feeds her income ----
+// ---- 8. Any number of named sources feed the right person ----
+// Income used to be three fixed slots; it is a list now, so a phase can carry
+// as many as the couple actually have.
 {
   const c = clone(DEFAULT_CONFIG);
-  c.phases[0].income.herSideHustle = 5000;
+  c.phases[0].income.push({ id: 'hustle', label: 'Side hustle', owner: 'her', amount: 5000 });
   const r = computePlan(c, { includeUncertain: true, includePending: false });
   // Her baseline net, plus the side hustle for the two months of phase one.
   assert.equal(Math.round(r.net.her), -24720 + 5000 * 2);
+
+  // A second source on the same person stacks rather than replacing.
+  const two = clone(c);
+  two.phases[0].income.push({ id: 'tutoring', label: 'Tutoring', owner: 'her', amount: 3000 });
+  const r2 = computePlan(two, { includeUncertain: true, includePending: false });
+  assert.equal(Math.round(r2.net.her), Math.round(r.net.her) + 3000 * 2);
+
+  // And its label is what the month breakdown will show.
+  assert.equal(two.phases[0].income.at(-1)?.label, 'Tutoring');
 }
 
 console.log('\nall engine assertions passed');

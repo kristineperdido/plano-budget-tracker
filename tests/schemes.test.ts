@@ -131,7 +131,7 @@ const OPTS = { includeUncertain: true, includePending: false };
   c.phases[0].schemeId = 'deleted';
   assert.equal(schemeFor(c, c.phases[0]).id, 'standard', 'falls back rather than throwing');
   assert.ok(computePlan(c, OPTS).combined !== 0);
-  assert.equal(phaseOf(c.phases, 0)?.id, 'gap');
+  assert.equal(phaseOf(c.phases, 0, c.startMonth)?.id, 'gap');
 }
 
 console.log('all scheme assertions passed');
