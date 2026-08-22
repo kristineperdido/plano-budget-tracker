@@ -49,6 +49,22 @@ export type LineItem = {
   estimateHigh?: number;
 };
 
+/**
+ * A named set of cost lines — "Jhay carries it", "Split evenly". A phase picks
+ * one, and two phases may share the same one.
+ *
+ * Lines keep the same id across schemes when a scheme is copied from another,
+ * which is what stops the history fragmenting: `bill_payments.item_id` still
+ * resolves, so a figure recorded against Electric is the same Electric
+ * whichever scheme is in force. What differs between schemes is the terms —
+ * the amount, who pays, when it starts — not the identity of the cost.
+ */
+export type Scheme = {
+  id: string;
+  label: string;
+  items: LineItem[];
+};
+
 export type Phase = {
   id: string;
   label: string;
@@ -57,8 +73,8 @@ export type Phase = {
   months: number;
   /** Per month, for the duration of the phase. */
   income: { her: number; him: number; herSideHustle: number };
-  /** Per-phase payer overrides, keyed by line-item id. */
-  payers: Record<string, Payer>;
+  /** Which scheme's lines apply during this phase. */
+  schemeId: string;
   /** Who carries the food bill during this phase. */
   foodPayer: Payer;
 };
@@ -102,7 +118,18 @@ export type FoodConfig = {
   dailyBudget: number;
 };
 
-/** Shapes this config has had before, kept only so `migrate` can read them. */
+/**
+ * Shapes this config has had before, kept only so `migrate` can read them.
+ * `items` and `phase.payers` predate schemes.
+ */
+export type LegacyConfig = Omit<Config, 'schemes' | 'pending' | 'phases'> & {
+  items?: LineItem[];
+  schemes?: Scheme[];
+  pending?: LineItem[];
+  phases?: (Omit<Phase, 'schemeId'> & { schemeId?: string; payers?: Record<string, Payer> })[];
+};
+
+/** Shapes the food config has had before. */
 export type LegacyFoodConfig = FoodConfig & {
   /** Superseded by `extras`; a lone hard-coded coffee layer. */
   coffee?: { cost: number; perWeek: number };
@@ -146,7 +173,14 @@ export type Config = {
    */
   startDate: string;
   phases: Phase[];
-  items: LineItem[];
+  /** The library of cost lists. Never empty — there is always one scheme. */
+  schemes: Scheme[];
+  /**
+   * Costs that are known about but cannot be priced. Kept out of the schemes
+   * because an unpriced cost is a fact about the plan, not about who is paying
+   * what during one stretch of it.
+   */
+  pending: LineItem[];
   moneyIn: MoneyIn[];
   food: FoodConfig;
   savings: SavingsConfig;
@@ -160,24 +194,30 @@ export const DEFAULT_CONFIG: Config = {
   version: 1,
   startMonth: '2026-09',
   startDate: '2026-09-15',
-  items: [
-    { id: 'deposit',   label: 'Security deposit', amount: 23000, cadence: 'onetime', startMonth: 0, payer: 'her',   group: 'movein', note: "2 months' rent" },
-    { id: 'advance',   label: 'Advance',          amount: 11500, cadence: 'onetime', startMonth: 0, payer: 'her',   group: 'movein', note: 'prepays Month 0 rent' },
-    { id: 'keycard',   label: 'Keycard',          amount: 500,   cadence: 'onetime', startMonth: 0, payer: 'each',  group: 'movein', note: '₱500 each, not split' },
-    { id: 'petfee',    label: 'Pet fee',          amount: 3000,  cadence: 'onetime', startMonth: 0, payer: 'split', group: 'movein', note: 'annual, per lease' },
-    { id: 'interviews',label: 'Interview trips',  amount: 583,   cadence: 'onetime', startMonth: 0, payer: 'her',   group: 'personal', note: '3 trips x (₱70 fare + lunch)' },
+  schemes: [
+    {
+      id: 'standard',
+      label: 'Jhay carries it',
+      items: [
+      { id: 'deposit',   label: 'Security deposit', amount: 23000, cadence: 'onetime', startMonth: 0, payer: 'her',   group: 'movein', note: "2 months' rent" },
+      { id: 'advance',   label: 'Advance',          amount: 11500, cadence: 'onetime', startMonth: 0, payer: 'her',   group: 'movein', note: 'prepays Month 0 rent' },
+      { id: 'keycard',   label: 'Keycard',          amount: 500,   cadence: 'onetime', startMonth: 0, payer: 'each',  group: 'movein', note: '₱500 each, not split' },
+      { id: 'petfee',    label: 'Pet fee',          amount: 3000,  cadence: 'onetime', startMonth: 0, payer: 'split', group: 'movein', note: 'annual, per lease' },
+      { id: 'interviews',label: 'Interview trips',  amount: 583,   cadence: 'onetime', startMonth: 0, payer: 'her',   group: 'personal', note: '3 trips x (₱70 fare + lunch)' },
 
-    { id: 'rent',      label: 'Rent',        amount: 11500, cadence: 'monthly', startMonth: 1, payer: 'him', group: 'housing', note: 'Month 0 covered by the advance' },
-    { id: 'electric',  label: 'Electric',    amount: 2500,  cadence: 'monthly', startMonth: 1, payer: 'him', group: 'housing', note: 'first bill covers Sept–Oct' },
-    { id: 'water',     label: 'Water',       amount: 500,   cadence: 'monthly', startMonth: 1, payer: 'him', group: 'housing', note: 'same billing lag' },
-    { id: 'wifi',      label: 'WiFi',        amount: 1000,  cadence: 'monthly', startMonth: 0, payer: 'him', group: 'housing', note: 'prepaid' },
-    { id: 'laundry',   label: 'Laundry',     amount: 640,   cadence: 'monthly', startMonth: 0, payer: 'him', group: 'living',  note: '₱150–170/week' },
-    { id: 'maintenance', label: 'Maintenance', amount: 500, cadence: 'monthly', startMonth: 0, payer: 'him', group: 'housing' },
-    { id: 'mama',      label: "Mama's bills", amount: 3000, cadence: 'monthly', startMonth: 0, payer: 'him', group: 'personal', note: 'per jhay\u2019s own cutoff sheet' },
-    { id: 'frosty',    label: 'Frosty',      amount: 1069,  cadence: 'monthly', startMonth: 0, payer: 'split', group: 'living', note: 'dry ₱777 + wet ₱206 + litter ₱86' },
-    { id: 'drinking',  label: 'Drinking water', amount: 86, cadence: 'monthly', startMonth: 0, payer: 'split', group: 'living', note: '~2 weeks per gallon' },
-
-    // Pending tray — excluded from the math until confirmed.
+      { id: 'rent',      label: 'Rent',        amount: 11500, cadence: 'monthly', startMonth: 1, payer: 'him', group: 'housing', note: 'Month 0 covered by the advance' },
+      { id: 'electric',  label: 'Electric',    amount: 2500,  cadence: 'monthly', startMonth: 1, payer: 'him', group: 'housing', note: 'first bill covers Sept–Oct' },
+      { id: 'water',     label: 'Water',       amount: 500,   cadence: 'monthly', startMonth: 1, payer: 'him', group: 'housing', note: 'same billing lag' },
+      { id: 'wifi',      label: 'WiFi',        amount: 1000,  cadence: 'monthly', startMonth: 0, payer: 'him', group: 'housing', note: 'prepaid' },
+      { id: 'laundry',   label: 'Laundry',     amount: 640,   cadence: 'monthly', startMonth: 0, payer: 'him', group: 'living',  note: '₱150–170/week' },
+      { id: 'maintenance', label: 'Maintenance', amount: 500, cadence: 'monthly', startMonth: 0, payer: 'him', group: 'housing' },
+      { id: 'mama',      label: "Mama's bills", amount: 3000, cadence: 'monthly', startMonth: 0, payer: 'him', group: 'personal', note: 'per jhay\u2019s own cutoff sheet' },
+      { id: 'frosty',    label: 'Frosty',      amount: 1069,  cadence: 'monthly', startMonth: 0, payer: 'split', group: 'living', note: 'dry ₱777 + wet ₱206 + litter ₱86' },
+      { id: 'drinking',  label: 'Drinking water', amount: 86, cadence: 'monthly', startMonth: 0, payer: 'split', group: 'living', note: '~2 weeks per gallon' },
+      ],
+    },
+  ],
+  pending: [
     { id: 'termination', label: 'Early termination fee', amount: 0, cadence: 'onetime', startMonth: 0, payer: 'split', group: 'movein', pending: true, note: 'unknown — check the contract before signing' },
     { id: 'appliances',  label: 'Appliances', amount: 5000, cadence: 'onetime', startMonth: 0, payer: 'split', group: 'movein', pending: true, estimateLow: 3000, estimateHigh: 7000, note: 'fridge, wardrobe' },
   ],
@@ -189,7 +229,7 @@ export const DEFAULT_CONFIG: Config = {
       months: 2,
       // ₱13,950 a cutoff, twice a month.
       income: { her: 0, him: 27900, herSideHustle: 0 },
-      payers: {},
+      schemeId: 'standard',
       foodPayer: 'split',
     },
     {
@@ -198,7 +238,7 @@ export const DEFAULT_CONFIG: Config = {
       note: 'still no second income — this is the stretch that shows how long the money lasts',
       months: 3,
       income: { her: 0, him: 27900, herSideHustle: 0 },
-      payers: {},
+      schemeId: 'standard',
       foodPayer: 'split',
     },
   ],
@@ -244,6 +284,18 @@ export function dayTypeTint(dayTypes: DayType[], id: string): 'green' | 'gold' |
   if (sorted[0].id === id) return 'green';
   if (sorted[sorted.length - 1].id === id) return 'brick';
   return 'gold';
+}
+
+/** The scheme in force during a phase, falling back to the first one. */
+export function schemeFor(config: Config, phase: Phase | null): Scheme {
+  return (
+    config.schemes.find((s) => s.id === phase?.schemeId) ?? config.schemes[0]
+  );
+}
+
+/** Every scheme that contains a line with this id. */
+export function schemesWith(config: Config, itemId: string): Scheme[] {
+  return config.schemes.filter((s) => s.items.some((i) => i.id === itemId));
 }
 
 /**

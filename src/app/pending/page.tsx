@@ -17,7 +17,7 @@ function worstCase(item: LineItem): number {
 export default function PendingPage() {
   const { config, setConfig, persist, saving, error } = useConfig();
 
-  const pending = useMemo(() => config?.items.filter((i) => i.pending) ?? [], [config]);
+  const pending = useMemo(() => config?.pending ?? [], [config]);
 
   // What the plan looks like now, and what it looks like if every pending item
   // lands at the top of its range.
@@ -29,7 +29,7 @@ export default function PendingPage() {
     if (!config) return null;
     const inflated: Config = {
       ...config,
-      items: config.items.map((i) => (i.pending ? { ...i, amount: worstCase(i) } : i)),
+      pending: config.pending.map((i) => ({ ...i, amount: worstCase(i) })),
     };
     return computePlan(inflated, { includeUncertain: true, includePending: true });
   }, [config]);
@@ -81,7 +81,7 @@ export default function PendingPage() {
                     onChange={(e) =>
                       setConfig({
                         ...config,
-                        items: config.items.map((i) =>
+                        pending: config.pending.map((i) =>
                           i.id === item.id ? { ...i, label: e.target.value } : i,
                         ),
                       })
@@ -90,7 +90,7 @@ export default function PendingPage() {
                       void persist(
                         {
                           ...config,
-                          items: config.items.map((i) =>
+                          pending: config.pending.map((i) =>
                             i.id === item.id ? { ...i, label: e.target.value } : i,
                           ),
                         },
@@ -119,7 +119,7 @@ export default function PendingPage() {
                         void persist(
                           {
                             ...config,
-                            items: config.items.map((i) =>
+                            pending: config.pending.map((i) =>
                               i.id === item.id ? { ...i, amount: v } : i,
                             ),
                           },
@@ -140,27 +140,34 @@ export default function PendingPage() {
                     type="button"
                     className="btn btn--primary flex-[2]"
                     disabled={saving}
-                    onClick={() =>
+                    onClick={() => {
+                      // Confirming moves the line out of the tray and into every
+                      // scheme, keeping its id. A cost you have agreed to exists
+                      // whichever scheme is in force; who pays it can then be
+                      // changed per scheme on the Ledger.
+                      const confirmed = {
+                        ...item,
+                        pending: false,
+                        // A confirmed range settles at its top: better for the
+                        // plan to be pessimistic than surprised.
+                        amount: item.estimateHigh ?? item.amount,
+                        estimateLow: undefined,
+                        estimateHigh: undefined,
+                      };
                       void persist(
                         {
                           ...config,
-                          items: config.items.map((i) =>
-                            i.id === item.id
-                              ? {
-                                  ...i,
-                                  pending: false,
-                                  // A confirmed range settles at its top: better
-                                  // for the plan to be pessimistic than surprised.
-                                  amount: i.estimateHigh ?? i.amount,
-                                  estimateLow: undefined,
-                                  estimateHigh: undefined,
-                                }
-                              : i,
-                          ),
+                          pending: config.pending.filter((i) => i.id !== item.id),
+                          schemes: config.schemes.map((sc) => ({
+                            ...sc,
+                            items: sc.items.some((i) => i.id === confirmed.id)
+                              ? sc.items
+                              : [...sc.items, confirmed],
+                          })),
                         },
                         `Confirmed ${item.label} at ${php(worstCase(item))}`,
-                      )
-                    }
+                      );
+                    }}
                   >
                     Confirm in
                   </button>
@@ -170,7 +177,7 @@ export default function PendingPage() {
                     disabled={saving}
                     onClick={() =>
                       void persist(
-                        { ...config, items: config.items.filter((i) => i.id !== item.id) },
+                        { ...config, pending: config.pending.filter((i) => i.id !== item.id) },
                         `Dropped ${item.label}`,
                       )
                     }
@@ -218,8 +225,8 @@ export default function PendingPage() {
               void persist(
                 {
                   ...config,
-                  items: [
-                    ...config.items,
+                  pending: [
+                    ...config.pending,
                     {
                       id: `pending-${Date.now()}`,
                       label: 'Something not yet priced',

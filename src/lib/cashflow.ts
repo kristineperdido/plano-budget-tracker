@@ -1,6 +1,6 @@
 import { daysCoveredInMonth, monthOfIndex } from './date';
 import { applyPayer, phaseOf, totalMonths } from './engine';
-import type { Config, LineItem, MoneyIn } from './config';
+import { schemeFor, type Config, type LineItem, type MoneyIn } from './config';
 
 /**
  * Whether a pot of money is money you can count on.
@@ -150,14 +150,20 @@ export function computeCashflow(
       ? phase.income.her + phase.income.herSideHustle + phase.income.him
       : 0;
 
+    // The terms in force this month come from the phase's scheme.
     let bills = 0;
-    for (const item of config.items) {
+    const lines = [
+      ...schemeFor(config, phase).items,
       // The pending tray is excluded unless asked for: these are costs nobody
       // has been able to price, and folding a guess in by default would make
       // the plan look worse than what is actually known.
+      ...(options.includePending ? config.pending : []),
+    ];
+    for (const item of lines) {
+      // Pending-ness is decided by which list a line is in, but honour the flag
+      // too: a line that carries it should never be charged, wherever it sits.
       if ((item.pending && !options.includePending) || !activeIn(item, i)) continue;
-      const payer = phase?.payers[item.id] ?? item.payer;
-      const s = applyPayer(item.amount, payer);
+      const s = applyPayer(item.amount, item.payer);
       bills += s.her + s.him;
     }
 

@@ -1,5 +1,5 @@
 import { daysCoveredInMonth, monthOfIndex } from './date';
-import type { Config, FoodConfig, LineItem, Payer, Phase } from './config';
+import { schemeFor, type Config, type FoodConfig, type LineItem, type Payer, type Phase } from './config';
 
 export type ExtraForecast = {
   id: string;
@@ -157,7 +157,22 @@ export function computePlan(config: Config, options: Options): PlanResult {
   const wholePlan = from === 0 && to === all - 1;
   const forecast = foodForecast(config.food);
 
-  const items = config.items.filter((i) => (i.pending ? options.includePending : true));
+  // Every line that appears in any scheme, plus the pending tray when asked
+  // for. A line is identified across schemes by its id, so the same cost keeps
+  // one breakdown even where its terms differ month to month.
+  const seen = new Map<string, LineItem>();
+  for (const scheme of config.schemes) {
+    for (const item of scheme.items) {
+      // Pending-ness is decided by which list a line is in, but honour the flag
+      // too: a line that carries it should never be charged, wherever it sits.
+      if (item.pending && !options.includePending) continue;
+      if (!seen.has(item.id)) seen.set(item.id, item);
+    }
+  }
+  if (options.includePending) {
+    for (const item of config.pending) if (!seen.has(item.id)) seen.set(item.id, item);
+  }
+  const items = [...seen.values()];
 
   const breakdowns: ItemBreakdown[] = items.map((item) => {
     let occurrences = 0;
@@ -165,14 +180,20 @@ export function computePlan(config: Config, options: Options): PlanResult {
     let split = ZERO;
 
     for (let m = from; m <= to; m++) {
-      if (!isActive(item, m)) continue;
       const phase = phaseOf(config.phases, m);
       if (!phase) continue;
-      // A phase may reassign who pays without changing the item itself.
-      const payer = phase.payers[item.id] ?? item.payer;
+
+      // The terms in force this month come from the phase's scheme. A line
+      // absent from that scheme simply is not charged then, which is how a
+      // cost can stop partway through the plan.
+      const terms =
+        schemeFor(config, phase).items.find((i) => i.id === item.id) ??
+        (item.pending ? item : null);
+      if (!terms || (terms.pending && !options.includePending) || !isActive(terms, m)) continue;
+
       occurrences += 1;
-      total += item.amount;
-      split = add(split, applyPayer(item.amount, payer));
+      total += terms.amount;
+      split = add(split, applyPayer(terms.amount, terms.payer));
     }
     return { item, occurrences, total, split };
   });

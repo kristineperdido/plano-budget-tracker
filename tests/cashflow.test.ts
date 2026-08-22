@@ -133,8 +133,8 @@ const round = (x: number) => Math.round(x);
   const c = clone(DEFAULT_CONFIG);
   // All the money arrives, but only at the very end.
   c.phases = [
-    { id: 'lean', label: 'Lean', months: 2, income: { her: 0, him: 0, herSideHustle: 0 }, payers: {}, foodPayer: 'split' },
-    { id: 'flush', label: 'Flush', months: 1, income: { her: 200000, him: 0, herSideHustle: 0 }, payers: {}, foodPayer: 'split' },
+    { id: 'lean', label: 'Lean', months: 2, income: { her: 0, him: 0, herSideHustle: 0 }, schemeId: 'standard', foodPayer: 'split' },
+    { id: 'flush', label: 'Flush', months: 1, income: { her: 200000, him: 0, herSideHustle: 0 }, schemeId: 'standard', foodPayer: 'split' },
   ];
   const plan = computePlan(c, { includeUncertain: true, includePending: false });
   const f = computeCashflow(c);
@@ -151,9 +151,9 @@ const round = (x: number) => Math.round(x);
 // ---- 5. Surplus in one month carries into the next ----
 {
   const c = clone(DEFAULT_CONFIG);
-  c.items = [];               // no costs at all
+  c.schemes[0].items = [];               // no costs at all
   c.moneyIn = [];             // no reserves
-  c.phases = [{ id: 'p', label: 'P', months: 2, income: { her: 50000, him: 0, herSideHustle: 0 }, payers: {}, foodPayer: 'split' }];
+  c.phases = [{ id: 'p', label: 'P', months: 2, income: { her: 50000, him: 0, herSideHustle: 0 }, schemeId: 'standard', foodPayer: 'split' }];
   const f = computeCashflow(c);
 
   assert.ok(f.months[0].gap > 0);
@@ -169,11 +169,20 @@ const round = (x: number) => Math.round(x);
 {
   const c = clone(DEFAULT_CONFIG);
   const before = computeCashflow(c).months[0].out;
-  c.items.push({
+  c.pending.push({
     id: 'guess', label: 'A guess', amount: 99999, cadence: 'onetime',
     startMonth: 0, payer: 'split', group: 'movein', pending: true,
   });
   assert.equal(computeCashflow(c).months[0].out, before, 'an unpriced cost is not folded in');
+
+  // And a stray pending line inside a scheme is still not charged: which list
+  // it is in decides, but the flag is honoured too rather than silently ignored.
+  const stray = clone(DEFAULT_CONFIG);
+  stray.schemes[0].items.push({
+    id: 'stray', label: 'Stray', amount: 99999, cadence: 'onetime',
+    startMonth: 0, payer: 'split', group: 'movein', pending: true,
+  });
+  assert.equal(computeCashflow(stray).months[0].out, before, 'the flag still bites');
 }
 
 // ---- 7. Food is charged on the days actually lived there ----

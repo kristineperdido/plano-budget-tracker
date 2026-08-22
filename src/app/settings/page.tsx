@@ -370,6 +370,34 @@ export default function SettingsPage() {
                   />
                 </div>
 
+                {/* Which set of terms applies while this phase runs. */}
+                <div className="row">
+                  <span className="row-label">
+                    Costs follow
+                    <span className="row-meta block">edit the terms on the Ledger</span>
+                  </span>
+                  <select
+                    aria-label={`Scheme used during ${p.label}`}
+                    className="chip"
+                    value={p.schemeId}
+                    onChange={(e) =>
+                      updatePhase(
+                        p.id,
+                        { schemeId: e.target.value },
+                        `${p.label} now follows ${
+                          config.schemes.find((sc) => sc.id === e.target.value)?.label ?? 'a scheme'
+                        }`,
+                      )
+                    }
+                  >
+                    {config.schemes.map((sc) => (
+                      <option key={sc.id} value={sc.id}>
+                        {sc.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
                 <div className="row">
                   <PayerTag payer="her" />
                   <span className="row-label">Income per month</span>
@@ -447,7 +475,7 @@ export default function SettingsPage() {
                         label: 'New phase',
                         months: 1,
                         income: { her: 0, him: 0, herSideHustle: 0 },
-                        payers: {},
+                        schemeId: config.schemes[0].id,
                         foodPayer: 'split',
                       },
                     ],

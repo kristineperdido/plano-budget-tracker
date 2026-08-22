@@ -1,6 +1,13 @@
 'use client';
 
-import { DEFAULT_CONFIG, migrateFood, type Config, type LegacyFoodConfig } from './config';
+import {
+  DEFAULT_CONFIG,
+  migrateFood,
+  type Config,
+  type LegacyConfig,
+  type LegacyFoodConfig,
+  type LineItem,
+} from './config';
 import { supabase } from './supabase';
 
 const ROW_ID = 'main';
@@ -71,8 +78,7 @@ function migrate(stored: Config): Config {
     ...DEFAULT_CONFIG,
     ...stored,
     food: migrateFood(stored.food as LegacyFoodConfig | undefined),
-    phases: stored.phases?.length ? stored.phases : DEFAULT_CONFIG.phases,
-    items: stored.items?.length ? stored.items : DEFAULT_CONFIG.items,
+    ...migrateSchemes(stored as LegacyConfig),
     moneyIn: stored.moneyIn?.length ? stored.moneyIn : DEFAULT_CONFIG.moneyIn,
     savings: { ...DEFAULT_CONFIG.savings, ...stored.savings },
     settlement: { ...DEFAULT_CONFIG.settlement, ...stored.settlement },
@@ -81,6 +87,48 @@ function migrate(stored: Config): Config {
     // from the 1st and invent a pot; fall back to the first of its start month.
     startDate: stored.startDate ?? `${stored.startMonth ?? DEFAULT_CONFIG.startMonth}-01`,
   };
+}
+
+/**
+ * Costs used to be one flat `items` list with the pending tray mixed in, and
+ * phases carried per-item payer overrides. A config written then is folded into
+ * a single scheme holding the real costs, with the unpriced ones lifted out —
+ * and any payer overrides a phase carried become a scheme of their own, so
+ * nothing that was set is quietly lost.
+ */
+function migrateSchemes(stored: LegacyConfig): Pick<Config, 'phases' | 'schemes' | 'pending'> {
+  const phases = (stored.phases?.length ? stored.phases : DEFAULT_CONFIG.phases) as Config['phases'];
+
+  if (stored.schemes?.length) {
+    return {
+      phases: phases.map((p) => ({ ...p, schemeId: p.schemeId ?? stored.schemes![0].id })),
+      schemes: stored.schemes,
+      pending: stored.pending ?? [],
+    };
+  }
+
+  const flat = stored.items?.length ? stored.items : DEFAULT_CONFIG.schemes[0].items;
+  const base = flat.filter((i) => !i.pending);
+  const pending = stored.pending ?? flat.filter((i) => Boolean(i.pending));
+
+  const schemes: Config['schemes'] = [{ id: 'standard', label: 'Standard', items: base }];
+
+  const next = phases.map((p) => {
+    const overrides = (p as { payers?: Record<string, LineItem['payer']> }).payers ?? {};
+    if (Object.keys(overrides).length === 0) return { ...p, schemeId: 'standard' };
+
+    // A phase that reassigned who pays becomes its own scheme, carrying the
+    // same line ids so recorded figures still resolve.
+    const id = `scheme-${p.id}`;
+    schemes.push({
+      id,
+      label: p.label,
+      items: base.map((i) => (overrides[i.id] ? { ...i, payer: overrides[i.id] } : i)),
+    });
+    return { ...p, schemeId: id };
+  });
+
+  return { phases: next, schemes, pending };
 }
 
 export async function logChange(note: string): Promise<void> {

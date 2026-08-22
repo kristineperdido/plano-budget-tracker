@@ -14,6 +14,7 @@ import {
   type Payer,
 } from '@/lib/config';
 import { logChange } from '@/lib/configStore';
+import { schemesWith, type Scheme } from '@/lib/config';
 import { useConfig } from '@/lib/useConfig';
 import { foodForecast, householdCost } from '@/lib/engine';
 import { fetchBills, recordBill, type BillPayment } from '@/lib/bills';
@@ -97,6 +98,10 @@ export default function LedgerPage() {
   const [savingBill, setSavingBill] = useState(false);
   /** Which row has been opened to type a figure it does not have yet. */
   const [recording, setRecording] = useState<string | null>(null);
+  /** Which scheme the Ledger is editing. Defaults to the first. */
+  const [schemeId, setSchemeId] = useState<string | null>(null);
+  /** A change just saved that could also be applied to the other schemes. */
+  const [spread, setSpread] = useState<{ itemId: string; label: string; patch: Partial<LineItem> } | null>(null);
   const saveActual = useCallback(
     async (item: LineItem, amount: number) => {
       const month = billMonth(item);
@@ -118,26 +123,69 @@ export default function LedgerPage() {
     [billMonth, setError],
   );
 
-  const updateItem = useCallback(
-    (id: string, patch: Partial<LineItem>, note: string) => {
-      if (!config) return;
+  const scheme: Scheme | null = config
+    ? (config.schemes.find((s) => s.id === schemeId) ?? config.schemes[0])
+    : null;
+
+  /** Replace the active scheme's lines. */
+  const writeScheme = useCallback(
+    (items: LineItem[], note: string) => {
+      if (!config || !scheme) return;
       void persist(
-        { ...config, items: config.items.map((i) => (i.id === id ? { ...i, ...patch } : i)) },
+        {
+          ...config,
+          schemes: config.schemes.map((s) => (s.id === scheme.id ? { ...s, items } : s)),
+        },
         note,
       );
     },
-    [config, persist],
+    [config, scheme, persist],
   );
+
+  const updateItem = useCallback(
+    (id: string, patch: Partial<LineItem>, note: string) => {
+      if (!config || !scheme) return;
+      writeScheme(
+        scheme.items.map((i) => (i.id === id ? { ...i, ...patch } : i)),
+        note,
+      );
+      // Offer to carry it across, rather than deciding on the user's behalf.
+      // Editing one scheme is the common case; editing all of them is the one
+      // that is tedious to do by hand.
+      const alsoIn = schemesWith(config, id).filter((s) => s.id !== scheme.id);
+      const isTerms = 'amount' in patch || 'payer' in patch || 'cadence' in patch || 'startMonth' in patch;
+      if (alsoIn.length > 0 && isTerms) {
+        setSpread({ itemId: id, label: scheme.items.find((i) => i.id === id)?.label ?? '', patch });
+      }
+    },
+    [config, scheme, writeScheme],
+  );
+
+  /** Apply the change just made to every other scheme that has this line. */
+  const applyEverywhere = useCallback(() => {
+    if (!config || !spread || !scheme) return;
+    void persist(
+      {
+        ...config,
+        schemes: config.schemes.map((s) => ({
+          ...s,
+          items: s.items.map((i) => (i.id === spread.itemId ? { ...i, ...spread.patch } : i)),
+        })),
+      },
+      `${spread.label} changed in every scheme`,
+    );
+    setSpread(null);
+  }, [config, spread, scheme, persist]);
 
   const deleteItem = useCallback(
     (item: LineItem) => {
-      if (!config) return;
-      void persist(
-        { ...config, items: config.items.filter((i) => i.id !== item.id) },
-        `Removed ${item.label}`,
+      if (!scheme) return;
+      writeScheme(
+        scheme.items.filter((i) => i.id !== item.id),
+        `Removed ${item.label} from ${scheme.label}`,
       );
     },
-    [config, persist],
+    [scheme, writeScheme],
   );
 
   const addItem = useCallback(
@@ -153,12 +201,13 @@ export default function LedgerPage() {
         group: cadence === 'onetime' ? 'movein' : 'living',
       };
       setEditing(item.id);
-      void persist({ ...config, items: [...config.items, item] }, 'Added a line item');
+      if (!scheme) return;
+      writeScheme([...scheme.items, item], `Added ${item.label} to ${scheme.label}`);
     },
-    [config, persist],
+    [config, scheme, writeScheme],
   );
 
-  const active = useMemo(() => config?.items.filter((i) => !i.pending) ?? [], [config]);
+  const active = useMemo(() => scheme?.items ?? [], [scheme]);
   const forecast = useMemo(() => (config ? foodForecast(config.food) : null), [config]);
 
   return (
@@ -178,10 +227,142 @@ export default function LedgerPage() {
         </p>
       )}
 
-      {!config ? (
+      {!config || !scheme ? (
         <p className="empty py-16 text-center">opening the ledger…</p>
       ) : (
         <>
+          {/* Which scheme is being edited. A phase points at one of these, so
+              the same cost can be priced or paid differently in each stretch of
+              the plan without forking its identity. */}
+          {config.schemes.length > 0 && (
+            <Card title="Scheme" amount={`${config.schemes.length}`}>
+              <p className="row-meta -mt-1 mb-2">
+                editing one set of terms · phases choose which applies
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {config.schemes.map((sc) => {
+                  const used = config.phases.filter((p) => p.schemeId === sc.id).length;
+                  return (
+                    <button
+                      key={sc.id}
+                      type="button"
+                      className="chip"
+                      data-on={sc.id === scheme.id}
+                      aria-pressed={sc.id === scheme.id}
+                      onClick={() => setSchemeId(sc.id)}
+                    >
+                      {sc.label}
+                      {used > 0 && ` · ${used}`}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="mt-2 flex items-center gap-2">
+                <input
+                  aria-label="Name of this scheme"
+                  className="name-field"
+                  value={scheme.label}
+                  onChange={(e) =>
+                    setConfig({
+                      ...config,
+                      schemes: config.schemes.map((sc) =>
+                        sc.id === scheme.id ? { ...sc, label: e.target.value } : sc,
+                      ),
+                    })
+                  }
+                  onBlur={(e) =>
+                    void persist(
+                      {
+                        ...config,
+                        schemes: config.schemes.map((sc) =>
+                          sc.id === scheme.id ? { ...sc, label: e.target.value } : sc,
+                        ),
+                      },
+                      `Scheme renamed to ${e.target.value}`,
+                    )
+                  }
+                />
+                {config.schemes.length > 1 &&
+                  !config.phases.some((p) => p.schemeId === scheme.id) && (
+                    <button
+                      type="button"
+                      className="tap-target"
+                      onClick={() => {
+                        setSchemeId(config.schemes.find((sc) => sc.id !== scheme.id)!.id);
+                        void persist(
+                          {
+                            ...config,
+                            schemes: config.schemes.filter((sc) => sc.id !== scheme.id),
+                          },
+                          `Removed the ${scheme.label} scheme`,
+                        );
+                      }}
+                    >
+                      <span className="chip chip--sm tint-brick whitespace-nowrap">Remove</span>
+                    </button>
+                  )}
+              </div>
+
+              <button
+                type="button"
+                className="btn btn--dashed"
+                onClick={() => {
+                  // Copied, not blank: the lines keep their ids, which is what
+                  // keeps recorded figures resolving across schemes.
+                  const id = `scheme-${Date.now()}`;
+                  setSchemeId(id);
+                  void persist(
+                    {
+                      ...config,
+                      schemes: [
+                        ...config.schemes,
+                        { id, label: `${scheme.label} (copy)`, items: scheme.items.map((i) => ({ ...i })) },
+                      ],
+                    },
+                    `Added a scheme based on ${scheme.label}`,
+                  );
+                }}
+              >
+                + copy this one
+              </button>
+
+              {config.phases.some((p) => p.schemeId === scheme.id) ? (
+                <p className="row-meta mt-2">
+                  used by{' '}
+                  {config.phases
+                    .filter((p) => p.schemeId === scheme.id)
+                    .map((p) => p.label)
+                    .join(', ')}
+                </p>
+              ) : (
+                <Aside tilt={-1.5} tint="gold" className="mt-2">
+                  no phase uses this one yet — pick it in Settings
+                </Aside>
+              )}
+            </Card>
+          )}
+
+          {/* Both options, at the moment of editing, rather than a rule chosen
+              once and applied silently forever. */}
+          {spread && (
+            <Card>
+              <p className="text-[13.5px]">
+                {spread.label} changed in <strong>{scheme.label}</strong>. It also appears in{' '}
+                {schemesWith(config, spread.itemId).length - 1} other scheme
+                {schemesWith(config, spread.itemId).length - 1 === 1 ? '' : 's'}.
+              </p>
+              <div className="mt-2.5 flex gap-2">
+                <button type="button" className="chip flex-1" onClick={() => setSpread(null)}>
+                  This scheme only
+                </button>
+                <button type="button" className="chip flex-1" onClick={applyEverywhere}>
+                  Apply everywhere
+                </button>
+              </div>
+            </Card>
+          )}
+
           {SECTIONS.map((s) => {
             const rows = active.filter((i) => i.cadence === s.cadence);
             // Household cost, not face value: an 'each' item is paid in full
@@ -221,8 +402,15 @@ export default function LedgerPage() {
                           onChange={(e) =>
                             setConfig({
                               ...config,
-                              items: config.items.map((i) =>
-                                i.id === item.id ? { ...i, label: e.target.value } : i,
+                              schemes: config.schemes.map((sc) =>
+                                sc.id === scheme.id
+                                  ? {
+                                      ...sc,
+                                      items: sc.items.map((i) =>
+                                        i.id === item.id ? { ...i, label: e.target.value } : i,
+                                      ),
+                                    }
+                                  : sc,
                               ),
                             })
                           }
@@ -367,11 +555,18 @@ export default function LedgerPage() {
                             value={item.note ?? ''}
                             onChange={(e) =>
                               setConfig({
-                                ...config,
-                                items: config.items.map((i) =>
-                                  i.id === item.id ? { ...i, note: e.target.value } : i,
-                                ),
-                              })
+                              ...config,
+                              schemes: config.schemes.map((sc) =>
+                                sc.id === scheme.id
+                                  ? {
+                                      ...sc,
+                                      items: sc.items.map((i) =>
+                                        i.id === item.id ? { ...i, note: e.target.value } : i,
+                                      ),
+                                    }
+                                  : sc,
+                              ),
+                            })
                             }
                             onBlur={(e) =>
                               updateItem(

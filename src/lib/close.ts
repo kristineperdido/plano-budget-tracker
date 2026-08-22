@@ -1,6 +1,6 @@
 import { daysCoveredInMonth, monthIndexOf } from './date';
 import { phaseOf } from './engine';
-import type { Config, LineItem } from './config';
+import { schemeFor, type Config, type LineItem } from './config';
 import type { BillPayment } from './bills';
 import { owedOn, type FoodEntry } from './types';
 
@@ -20,11 +20,12 @@ export function previousMonth(month: string): string {
 /** Which line items the plan expects to be paid in a given calendar month. */
 export function billsDueIn(config: Config, month: string): LineItem[] {
   const index = monthIndexOf(config.startMonth, `${month}-01`);
-  if (index < 0 || !phaseOf(config.phases, index)) return [];
-  return config.items.filter(
-    (i) =>
-      !i.pending &&
-      (i.cadence === 'onetime' ? i.startMonth === index : index >= i.startMonth),
+  const phase = phaseOf(config.phases, index);
+  if (index < 0 || !phase) return [];
+  // Which lines are due depends on the scheme in force that month, so a cost
+  // that only exists in one scheme is only ever asked about while it applies.
+  return schemeFor(config, phase).items.filter((i) =>
+    i.cadence === 'onetime' ? i.startMonth === index : index >= i.startMonth,
   );
 }
 

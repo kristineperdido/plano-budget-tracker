@@ -51,7 +51,7 @@ const clone = (c: Config): Config => JSON.parse(JSON.stringify(c));
   const before = computePlan(c, { includeUncertain: true, includePending: false });
   assert.equal(before.orphaned.length, 0, 'nothing is stranded to begin with');
 
-  c.items.push({
+  c.schemes[0].items.push({
     id: 'car', label: 'Car payment', amount: 9999, cadence: 'monthly',
     startMonth: 5, payer: 'split', group: 'living',
   });
@@ -65,8 +65,8 @@ const clone = (c: Config): Config => JSON.parse(JSON.stringify(c));
 {
   const c = clone(DEFAULT_CONFIG);
   c.phases = [
-    { id: 'a', label: 'A', months: 1, income: { her: 0, him: 27400, herSideHustle: 0 }, payers: {}, foodPayer: 'split' },
-    { id: 'b', label: 'B', months: 1, income: { her: 30000, him: 27400, herSideHustle: 0 }, payers: {}, foodPayer: 'split' },
+    { id: 'a', label: 'A', months: 1, income: { her: 0, him: 27400, herSideHustle: 0 }, schemeId: 'standard', foodPayer: 'split' },
+    { id: 'b', label: 'B', months: 1, income: { her: 30000, him: 27400, herSideHustle: 0 }, schemeId: 'standard', foodPayer: 'split' },
   ];
 
   const whole = computePlan(c, { includeUncertain: true, includePending: false });
@@ -113,18 +113,26 @@ assert.deepEqual(applyPayer(100, 'her'), { her: 100, him: 0 });
   assert.equal(by('keycard').split.him, 500);
 }
 
-// ---- 5. Multi-phase: a second phase changes incomes and payer rules ----
+// ---- 5. Multi-phase: a second phase changes incomes and who pays ----
 {
   // Phases are set outright rather than appended, so this stays a two-phase
-  // scenario however many phases the real plan grows to.
+  // scenario however many phases the real plan grows to. Who pays now comes
+  // from the scheme the phase follows, not from per-phase overrides.
   const c = clone(DEFAULT_CONFIG);
+  c.schemes.push({
+    id: 'even',
+    label: 'Split evenly',
+    items: c.schemes[0].items.map((i) =>
+      i.id === 'rent' || i.id === 'electric' ? { ...i, payer: 'split' as const } : i,
+    ),
+  });
   c.phases = [
     {
       id: 'gap',
       label: 'Between jobs',
       months: 2,
       income: { her: 0, him: 27900, herSideHustle: 0 },
-      payers: {},
+      schemeId: 'standard',
       foodPayer: 'split',
     },
     {
@@ -132,7 +140,7 @@ assert.deepEqual(applyPayer(100, 'her'), { her: 100, him: 0 });
       label: 'She is working',
       months: 2,
       income: { her: 20000, him: 27900, herSideHustle: 0 },
-      payers: { rent: 'split', electric: 'split' },
+      schemeId: 'even',
       foodPayer: 'split',
     },
   ];
@@ -153,8 +161,8 @@ assert.deepEqual(applyPayer(100, 'her'), { her: 100, him: 0 });
 // ---- 6. Phase boundaries ----
 {
   const phases = [
-    { id: 'a', label: 'A', months: 2, income: { her: 0, him: 0, herSideHustle: 0 }, payers: {}, foodPayer: 'split' as const },
-    { id: 'b', label: 'B', months: 3, income: { her: 0, him: 0, herSideHustle: 0 }, payers: {}, foodPayer: 'split' as const },
+    { id: 'a', label: 'A', months: 2, income: { her: 0, him: 0, herSideHustle: 0 }, schemeId: 'standard', foodPayer: 'split' as const },
+    { id: 'b', label: 'B', months: 3, income: { her: 0, him: 0, herSideHustle: 0 }, schemeId: 'standard', foodPayer: 'split' as const },
   ];
   assert.equal(totalMonths(phases), 5);
   assert.equal(phaseOf(phases, 0)?.id, 'a');
