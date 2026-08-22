@@ -293,4 +293,34 @@ const round = (x: number) => Math.round(x);
   assert.equal(f.months[1].food, 500 * 31, 'October in full');
 }
 
+
+// ---- 9. What survives is explained month by month ----
+{
+  const c = clone(DEFAULT_CONFIG);
+  c.phases.push({
+    id: 'rich', label: 'Both earning', from: '2027-02', months: 3,
+    schemeId: 'standard', foodPayer: 'split',
+    income: [
+      { id: 'him', label: "Jhay's pay", owner: 'him', amount: 27000 },
+      { id: 'her', label: "Tin's pay", owner: 'her', amount: 27000 },
+    ],
+  });
+  const f = computeCashflow(c);
+
+  const kept = f.months.reduce((a, m) => a + m.keptForLater, 0);
+  const eaten = f.months.reduce((a, m) => a + m.fromCarried, 0);
+
+  assert.ok(kept > 0, 'the earning months put something by');
+  assert.equal(
+    round(kept - eaten),
+    round(f.inHandAtEnd - f.reservesLeft),
+    'and what survives is exactly what was kept less what later months ate',
+  );
+
+  // Every month either keeps or eats, never both.
+  for (const m of f.months) {
+    assert.ok(m.keptForLater === 0 || m.fromCarried === 0, `${m.month} does not do both`);
+  }
+}
+
 console.log('all cashflow assertions passed');

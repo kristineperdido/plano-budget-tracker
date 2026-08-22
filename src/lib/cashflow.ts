@@ -44,6 +44,13 @@ export type MonthFlow = {
    */
   fromEarmark: EarmarkPayment[];
   paidFromEarmark: number;
+  /**
+   * Surplus this month kept for later, and surplus from earlier months spent
+   * covering this one. Between them they explain what survives at the end,
+   * which is otherwise a single number with no working shown.
+   */
+  keptForLater: number;
+  fromCarried: number;
   /** Line items charged this month. */
   bills: number;
   food: number;
@@ -313,6 +320,8 @@ export function computeCashflow(
       gap,
       fromEarmark,
       paidFromEarmark,
+      keptForLater: Math.max(0, gap),
+      fromCarried,
       committedLeft: left('committed') + carried,
       uncertainLeft: left('uncertain'),
       backupLeft: left('backup'),

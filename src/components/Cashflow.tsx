@@ -41,6 +41,7 @@ export function CashflowPanel({
 }) {
   /** Which month is opened out. One at a time keeps the table readable. */
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [showKept, setShowKept] = useState(false);
   const shown = only
     ? flow.months.filter((m) => m.index >= only.from && m.index <= only.to)
     : flow.months;
@@ -208,13 +209,51 @@ export function CashflowPanel({
         </div>
 
         {earned > 0.5 && (
-          <div className="row">
-            <span className="row-label">
-              Kept from good months
-              <span className="row-meta block">earned during the plan, not savings</span>
-            </span>
-            <span className="num tint-green text-[13px]">{php(earned)}</span>
-          </div>
+          <>
+            <button
+              type="button"
+              className="row w-full text-left"
+              style={{ background: 'transparent', border: 0, borderBottom: '1px dotted var(--rule)' }}
+              aria-expanded={showKept}
+              onClick={() => setShowKept((v) => !v)}
+            >
+              <span className="row-label">
+                Kept from good months
+                <span className="row-meta block">earned during the plan, not savings</span>
+              </span>
+              <span className="num tint-green text-[13px]">{php(earned)}</span>
+              <span aria-hidden className="tint-muted text-[8px]">
+                {showKept ? '▼' : '▶'}
+              </span>
+            </button>
+
+            {/* Which months put it by, and which ate into it. */}
+            {showKept && (
+              <div className="mb-2 ml-[10px] pl-3" style={{ borderLeft: '1px solid var(--rule)' }}>
+                {flow.months
+                  .filter((m) => m.keptForLater > 0.5 || m.fromCarried > 0.5)
+                  .map((m) => (
+                    <div key={m.month} className="flex items-baseline gap-2 py-1 text-[12.5px]">
+                      <span className="num tint-muted" style={{ width: 60 }}>
+                        {short(m.month)}
+                      </span>
+                      <span className="row-note flex-1">
+                        {m.keptForLater > 0.5 ? 'put by' : 'spent covering it'}
+                      </span>
+                      <span className={`num ${m.keptForLater > 0.5 ? 'tint-green' : 'tint-brick'}`}>
+                        {m.keptForLater > 0.5 ? '+' : '−'}
+                        {php(m.keptForLater > 0.5 ? m.keptForLater : m.fromCarried)}
+                      </span>
+                    </div>
+                  ))}
+                <p className="row-meta mt-1">
+                  {php(flow.months.reduce((a, m) => a + m.keptForLater, 0))} put by, less{' '}
+                  {php(flow.months.reduce((a, m) => a + m.fromCarried, 0))} spent covering later
+                  months
+                </p>
+              </div>
+            )}
+          </>
         )}
 
         <div className="leader mt-1 border-t pt-2.5" style={{ borderColor: 'var(--rule)' }}>
@@ -225,11 +264,28 @@ export function CashflowPanel({
           </span>
         </div>
 
-        <Aside tilt={-1.5} tint={savingsLeft <= 0 ? 'brick' : 'gold'} className="mt-2">
-          {php(reservesTotal)} of savings against {php(flow.totalGap)} of shortfall
-          {flow.pots.some((p) => p.spentOnEarmark > 0) &&
-            `, plus ${php(flow.pots.reduce((a, p) => a + p.spentOnEarmark, 0))} it was put aside for`}
-        </Aside>
+        {/* Says what happened, not one formula whatever the outcome. */}
+        {flow.firstMonthShort ? (
+          <Aside tilt={-1.5} tint="brick" className="mt-2">
+            everything runs out in {short(flow.firstMonthShort)} — {php(flow.totalGap)} to cover
+            with {php(reservesTotal)} of savings
+          </Aside>
+        ) : savingsLeft <= 0.5 ? (
+          <Aside tilt={-1.5} tint="gold" className="mt-2">
+            every peso of savings goes
+            {earned > 0.5
+              ? `, and what you hold at the end is the ${php(earned)} earned along the way`
+              : ', and the plan finishes with nothing behind it'}
+          </Aside>
+        ) : savingsLeft < reservesTotal * 0.25 ? (
+          <Aside tilt={-1.5} tint="gold" className="mt-2">
+            {php(savingsLeft)} of {php(reservesTotal)} survives — most of it goes
+          </Aside>
+        ) : (
+          <Aside tilt={-1.5} tint="green" className="mt-2">
+            {php(savingsLeft)} of savings never has to be touched
+          </Aside>
+        )}
       </div>
     </Card>
   );
