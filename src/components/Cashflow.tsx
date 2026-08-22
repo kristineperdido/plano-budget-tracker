@@ -45,7 +45,6 @@ export function CashflowPanel({
 }) {
   /** Which month is opened out. One at a time keeps the table readable. */
   const [expanded, setExpanded] = useState<string | null>(null);
-  const [showKept, setShowKept] = useState(false);
   const shown = only
     ? flow.months.filter((m) => m.index >= only.from && m.index <= only.to)
     : flow.months;
@@ -56,8 +55,6 @@ export function CashflowPanel({
   // Two different figures, and they were one: what survives of the savings, and
   // what you actually hold once months that paid for themselves are counted.
   const savingsLeft = flow.reservesLeft;
-  const inHand = flow.inHandAtEnd;
-  const earned = inHand - savingsLeft;
 
   return (
     <Card title="Month by month" amount={label} tape="left">
@@ -204,86 +201,40 @@ export function CashflowPanel({
           </div>
         )}
 
+        {/* The arithmetic, shown rather than asserted: what was in play, what
+            the plan took, what is left. */}
         <div className="leader mt-2 border-t pt-2.5" style={{ borderColor: 'var(--rule)' }}>
+          <span className="sign-label">Savings in play</span>
+          <span className="leader-fill" aria-hidden />
+          <span className="num text-[13px]">{php(reservesTotal)}</span>
+        </div>
+
+        <div className="row">
+          <span className="row-label">Spent covering the plan</span>
+          <span className="num tint-brick text-[13px]">−{php(reservesTotal - savingsLeft)}</span>
+        </div>
+
+        <div className="leader mt-1 border-t pt-2.5" style={{ borderColor: 'var(--rule)' }}>
           <span className="sign-label">Savings left</span>
           <span className="leader-fill" aria-hidden />
-          <span className={`num text-[15px] ${savingsLeft <= 0 ? 'tint-brick' : 'tint-green'}`}>
+          <span className={`num text-[17px] ${savingsLeft <= 0 ? 'tint-brick' : 'tint-green'}`}>
             {php(savingsLeft)}
           </span>
         </div>
 
-        {earned > 0.5 && (
-          <>
-            <button
-              type="button"
-              className="row w-full text-left"
-              style={{ background: 'transparent', border: 0, borderBottom: '1px dotted var(--rule)' }}
-              aria-expanded={showKept}
-              onClick={() => setShowKept((v) => !v)}
-            >
-              <span className="row-label">
-                Kept from good months
-                <span className="row-meta block">earned during the plan, not savings</span>
-              </span>
-              <span className="num tint-green text-[13px]">{php(earned)}</span>
-              <span aria-hidden className="tint-muted text-[8px]">
-                {showKept ? '▼' : '▶'}
-              </span>
-            </button>
-
-            {/* Which months put it by, and which ate into it. */}
-            {showKept && (
-              <div className="mb-2 ml-[10px] pl-3" style={{ borderLeft: '1px solid var(--rule)' }}>
-                {flow.months
-                  .filter((m) => m.keptForLater > 0.5 || m.fromCarried > 0.5)
-                  .map((m) => (
-                    <div key={m.month} className="flex items-baseline gap-2 py-1 text-[12.5px]">
-                      <span className="num tint-muted" style={{ width: 60 }}>
-                        {short(m.month)}
-                      </span>
-                      <span className="row-note flex-1">
-                        {m.keptForLater > 0.5 ? 'added' : 'taken to cover it'}
-                      </span>
-                      <span className={`num ${m.keptForLater > 0.5 ? 'tint-green' : 'tint-brick'}`}>
-                        {m.keptForLater > 0.5 ? '+' : '−'}
-                        {php(m.keptForLater > 0.5 ? m.keptForLater : m.fromCarried)}
-                      </span>
-                    </div>
-                  ))}
-                <p className="row-meta mt-1">
-                  {php(flow.months.reduce((a, m) => a + m.keptForLater, 0))} added across the
-                  plan, {php(flow.months.reduce((a, m) => a + m.fromCarried, 0))} of it taken
-                  again by later months
-                </p>
-              </div>
-            )}
-          </>
-        )}
-
-        <div className="leader mt-1 border-t pt-2.5" style={{ borderColor: 'var(--rule)' }}>
-          <span className="sign-label">In hand at the end</span>
-          <span className="leader-fill" aria-hidden />
-          <span className={`num text-[17px] ${inHand < 0 ? 'tint-brick' : 'tint-green'}`}>
-            {php(inHand)}
-          </span>
-        </div>
-
-        {/* Says what happened, not one formula whatever the outcome. */}
+        {/* Every figure named here is a row directly above it. */}
         {flow.firstMonthShort ? (
           <Aside tilt={-1.5} tint="brick" className="mt-2">
-            everything runs out in {short(flow.firstMonthShort)} — {php(flow.totalGap)} to cover
-            with {php(reservesTotal)} of savings
+            the savings run out, and {short(flow.firstMonthShort)} cannot be covered at all
           </Aside>
         ) : savingsLeft <= 0.5 ? (
           <Aside tilt={-1.5} tint="gold" className="mt-2">
             every peso of savings goes
-            {earned > 0.5
-              ? `, and what you hold at the end is the ${php(earned)} earned along the way`
-              : ', and the plan finishes with nothing behind it'}
+            {flow.savingsGoneIn ? `, the last of it in ${short(flow.savingsGoneIn)}` : ''}
           </Aside>
         ) : savingsLeft < reservesTotal * 0.25 ? (
           <Aside tilt={-1.5} tint="gold" className="mt-2">
-            {php(savingsLeft)} of {php(reservesTotal)} survives — most of it goes
+            most of the savings go — {php(savingsLeft)} of {php(reservesTotal)} survives
           </Aside>
         ) : (
           <Aside tilt={-1.5} tint="green" className="mt-2">

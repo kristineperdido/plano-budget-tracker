@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { DEFAULT_CONFIG, type Config } from '@/lib/config';
-import { computeCashflow } from '@/lib/cashflow';
+import { computeCashflow, type CashflowOptions } from '@/lib/cashflow';
 import { computePlan } from '@/lib/engine';
 
 const clone = (c: Config): Config => JSON.parse(JSON.stringify(c));
@@ -321,6 +321,79 @@ const round = (x: number) => Math.round(x);
   for (const m of f.months) {
     assert.ok(m.keptForLater === 0 || m.fromCarried === 0, `${m.month} does not do both`);
   }
+}
+
+
+// ---- 10. When the savings run out is not when the plan runs short ----
+{
+  const c = clone(DEFAULT_CONFIG);
+  c.phases.push({
+    id: 'rich', label: 'Both earning', from: '2027-02', months: 3,
+    schemeId: 'standard', foodPayer: 'split',
+    income: [
+      { id: 'him', label: "Jhay's pay", owner: 'him', amount: 27000 },
+      { id: 'her', label: "Tin's pay", owner: 'her', amount: 27000 },
+    ],
+  });
+  const f = computeCashflow(c, { includeUncertain: false, includePending: false, useBackup: true });
+
+  assert.equal(round(f.reservesLeft), 0, 'every peso of savings goes');
+  assert.ok(f.savingsGoneIn !== null, 'and there is a month it happens in');
+
+  // The month named is the first one that ends with nothing left.
+  const named = f.months.find((m) => m.month === f.savingsGoneIn)!;
+  assert.ok(named.reservesAfter <= 0.005);
+  const before = f.months[f.months.indexOf(named) - 1];
+  if (before) assert.ok(before.reservesAfter > 0, 'and the month before still had some');
+
+  // Savings surviving means no month is named at all.
+  const comfortable = clone(c);
+  comfortable.phases[0].income[0].amount = 60000;
+  comfortable.phases[1].income[0].amount = 60000;
+  const g = computeCashflow(comfortable, { includeUncertain: false, includePending: false, useBackup: true });
+  assert.ok(g.reservesLeft > 0);
+  assert.equal(g.savingsGoneIn, null);
+}
+
+
+// ---- 11. Every figure the card names is a row the card shows ----
+// The reserves footer prints committed/uncertain/backup, sums them as "Savings
+// in play", and the closing line quotes that sum. A pot hidden by a toggle must
+// therefore leave the total too, or the sentence cites a number nobody can see.
+{
+  const c = clone(DEFAULT_CONFIG);
+  c.moneyIn = [
+    { id: 'a', label: 'Savings', amount: 40000, owner: 'her' },
+    { id: 'b', label: 'Maybe bonus', amount: 9000, owner: 'him', uncertain: true },
+    { id: 'c', label: 'Emergency', amount: 10819, owner: 'her', backup: true },
+  ];
+
+  const shown = (o: CashflowOptions) => {
+    const f = computeCashflow(c, o);
+    // Mirrors the component: committed always, the others only when non-zero.
+    return (
+      f.reserves.committed +
+      (f.reserves.uncertain > 0 ? f.reserves.uncertain : 0) +
+      (f.reserves.backup > 0 ? f.reserves.backup : 0)
+    );
+  };
+  const total = (o: CashflowOptions) => {
+    const f = computeCashflow(c, o);
+    return f.reserves.committed + f.reserves.uncertain + f.reserves.backup;
+  };
+
+  for (const includeUncertain of [true, false]) {
+    for (const useBackup of [true, false]) {
+      const o = { includeUncertain, useBackup, includePending: false };
+      assert.equal(round(total(o)), round(shown(o)), `sum matches rows @ ${includeUncertain}/${useBackup}`);
+      // And it never exceeds the money that actually exists.
+      assert.ok(total(o) <= 59819.005);
+    }
+  }
+
+  // Concretely: with both toggles off only the committed pot is left.
+  assert.equal(round(total({ includeUncertain: false, useBackup: false, includePending: false })), 40000);
+  assert.equal(round(total({ includeUncertain: true, useBackup: true, includePending: false })), 59819);
 }
 
 console.log('all cashflow assertions passed');

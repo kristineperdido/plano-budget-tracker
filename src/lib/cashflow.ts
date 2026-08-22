@@ -51,6 +51,8 @@ export type MonthFlow = {
    */
   keptForLater: number;
   fromCarried: number;
+  /** What is left across every pot once this month is done. */
+  reservesAfter: number;
   /** Line items charged this month. */
   bills: number;
   food: number;
@@ -79,6 +81,12 @@ export type Cashflow = {
   firstMonthNeedingUncertain: string | null;
   /** The first month nothing covers, or null. */
   firstMonthShort: string | null;
+  /**
+   * The month the savings run out entirely, or null if some survives. Distinct
+   * from firstMonthShort: the savings can be gone while later months still pay
+   * for themselves.
+   */
+  savingsGoneIn: string | null;
   /** Each pot, what it was pointed at, and what is left of it at the end. */
   pots: {
     id: string;
@@ -322,6 +330,7 @@ export function computeCashflow(
       paidFromEarmark,
       keptForLater: Math.max(0, gap),
       fromCarried,
+      reservesAfter: left('committed') + left('uncertain') + left('backup'),
       committedLeft: left('committed') + carried,
       uncertainLeft: left('uncertain'),
       backupLeft: left('backup'),
@@ -338,6 +347,7 @@ export function computeCashflow(
   // How much further the money would go if nothing changed after the plan ends.
   const last = out[out.length - 1];
   const potsLeft = left('committed') + left('uncertain') + left('backup');
+  const gone = out.find((m) => m.reservesAfter <= 0.005);
   const leftOver = carried + potsLeft;
   let projectedDry: string | null = null;
   let monthsBeyond = 0;
@@ -358,6 +368,7 @@ export function computeCashflow(
     monthsBeyond,
     totalGap,
     endsWith: carried + left('committed'),
+    savingsGoneIn: potsLeft <= 0.005 ? (gone?.month ?? null) : null,
     reservesLeft: potsLeft,
     inHandAtEnd: leftOver,
   };
